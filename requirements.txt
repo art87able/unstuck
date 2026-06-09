@@ -1,2 +1,5 @@
-gradio>=4.44
 pytest>=8.0
+torch==2.8.0
+transformers
+accelerate
+huggingface_hub
