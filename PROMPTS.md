@@ -321,24 +321,45 @@ sdk_version, not listed in requirements.txt).
 
 ## Task 9 — Space card + deliverable drafts
 
+> Updated 2026-06-09: README front-matter is the ZeroGPU Gradio Space config (sdk_version pinned to
+> the tested gradio, python_version 3.12.12); privacy framing corrected; include the GitHub repo
+> link (OpenAI Codex Track rule).
+
 ```
 Implement ONLY the docs/deliverables. Touch only: README.md, docs/deliverables/demo-script.md,
 docs/deliverables/social-post.md. No code, no tests.
 
-1. Write README.md as a Hugging Face Space card: YAML front-matter (title: Unstuck, emoji, colorFrom,
-   colorTo, sdk: gradio, app_file: app.py, pinned: false) followed by a short description (turn one
-   overwhelming task into tiny timed steps; learns the user's personal time-blindness; built for the
-   Build Small Hackathon / Backyard AI; runs on a <=4B model) and a "Run locally" block
-   (pip install -r requirements.txt; python app.py).
-2. Write docs/deliverables/demo-script.md: a ~90-second timed demo script (hook about ADHD start +
-   time-blindness, break-it-down, log actuals, re-run showing raw vs higher "for you" estimate,
-   <=4B/local-data line, close on repo/Space link). Mark it "USER RECORDS".
-3. Write docs/deliverables/social-post.md: a short #BuildSmallHackathon post — paste a task, get
-   tiny timed steps, it learns your personal time-blindness, <=4B + local data, built for an ADHD
-   brain, with a [Space link] placeholder. Mark it "USER POSTS".
-4. Commit: "docs: Space card + demo script + social post drafts"
-   Stage only: README.md docs/deliverables/
+1. Write README.md as a Hugging Face ZeroGPU Gradio Space card. YAML front-matter exactly:
+       ---
+       title: Unstuck
+       emoji: 🧩
+       colorFrom: indigo
+       colorTo: purple
+       sdk: gradio
+       sdk_version: "6.17.3"
+       python_version: "3.12.12"
+       app_file: app.py
+       pinned: false
+       ---
+   Do NOT add a `spaces` line or a hardware key (ZeroGPU is selected in Space Settings). Then:
+   - A short description: Unstuck turns one overwhelming task into tiny timed steps, then learns your
+     personal time-blindness and recalibrates the estimates to you. Built for the HF Build Small
+     Hackathon (Backyard AI track). Runs a ≤4B model (Qwen/Qwen3-4B-Instruct-2507).
+   - A privacy line: "Runs a ≤4B model you can host yourself; your task history stays in the app's
+     own store and is never sent to a third-party LLM."
+   - A "Run locally" block: `pip install -r requirements.txt gradio`, then for the lightweight path
+     `UNSTUCK_BACKEND=hf_inference HF_TOKEN=... python app.py` (the default backend is `zerogpu`,
+     which the Space uses). Note Space storage is ephemeral — hence the in-app **Export** button.
+   - A "Source" line linking the GitHub repo: https://github.com/art87able/unstuck (Codex Track).
+2. Write docs/deliverables/demo-script.md: a ~90-second timed demo script (hook about ADHD task
+   initiation + time-blindness; break-it-down; log a couple of actuals over the estimate; re-run a
+   similar task showing the raw AI estimate vs the higher "for you" estimate; the ≤4B "you can run
+   it yourself" line; close on the repo/Space link). Mark it "USER RECORDS".
+3. Write docs/deliverables/social-post.md: a short #BuildSmallHackathon post — paste a task, get tiny
+   timed steps, it learns your personal time-blindness, runs on a ≤4B model, built for an ADHD brain,
+   with a [Space link] placeholder. Mark it "USER POSTS".
+4. (Commit handled by reviewer — DO NOT run git.) Intended message: "docs: Space card + demo script
+   + social post drafts", staging only README.md docs/deliverables/.
 
-One commit, Codex-attributed. No other files. (Creating the Space, recording the video, and
-posting are manual user steps — not part of this task.)
+(Creating the Space, recording the video, and posting are manual user steps — not part of this task.)
 ```
