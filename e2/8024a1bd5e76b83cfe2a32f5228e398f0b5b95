@@ -1,0 +1,19 @@
+PROMPTS.md
+  s_a22180907381e7::t_efa78bfb979d0c 231-235,238-278
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "e28024a1bd5e76b83cfe2a32f5228e398f0b5b95",
+  "prompts": {},
+  "sessions": {
+    "s_a22180907381e7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d0230fd2-af87-4b93-a7f6-3e5d64795a57",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Artur Arapov <art87able@gmail.com>"
+    }
+  }
+}
