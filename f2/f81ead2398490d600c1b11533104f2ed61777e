@@ -1,0 +1,23 @@
+README.md
+  s_f9d143b46b0da3::t_c24fce1d40d34e 1-30
+docs/deliverables/demo-script.md
+  s_f9d143b46b0da3::t_c24fce1d40d34e 1-24
+docs/deliverables/social-post.md
+  s_f9d143b46b0da3::t_c24fce1d40d34e 1-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "f2f81ead2398490d600c1b11533104f2ed61777e",
+  "prompts": {},
+  "sessions": {
+    "s_f9d143b46b0da3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ead53-cb7c-78f1-b4cf-e283f7cdf993",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Artur Arapov <art87able@gmail.com>"
+    }
+  }
+}
