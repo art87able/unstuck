@@ -1,0 +1,25 @@
+src/unstuck/store.py
+  s_3ec26ce3952628::t_5a79277d28bf68 69-79
+  s_3ec26ce3952628::t_234fa224e9f73d 93-98
+  s_3ec26ce3952628::t_74d42658f1db5b 5
+  s_3ec26ce3952628::t_1ffa980f1f291e 82-89
+  s_3ec26ce3952628::t_edbd416fdd337f 16-18,20
+  s_3ec26ce3952628::t_17754d7ca3dc43 50-54
+  s_3ec26ce3952628::t_a81d7258c0d9ca 34-47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "e35c2900542a975ac4880078ea9a45c6d3f765a4",
+  "prompts": {},
+  "sessions": {
+    "s_3ec26ce3952628": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7e344434-be17-4f41-8f72-b3bae7822c91",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Artur Arapov <art87able@gmail.com>"
+    }
+  }
+}
