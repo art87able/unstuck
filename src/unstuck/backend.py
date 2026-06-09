@@ -13,11 +13,12 @@ if BACKEND == "zerogpu":
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
     tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
+    # ZeroGPU requires plain .to("cuda") at module scope, not accelerate's
+    # device_map dispatch, so its monkey-patch can register the weights.
     model = AutoModelForCausalLM.from_pretrained(
         MODEL_ID,
-        device_map="cuda",
         torch_dtype="auto",
-    )
+    ).to("cuda")
 
     @spaces.GPU(duration=30)
     def generate(prompt: str) -> str:
