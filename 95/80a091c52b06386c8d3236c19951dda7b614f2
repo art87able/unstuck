@@ -1,0 +1,21 @@
+src/unstuck/prompts.py
+  s_760926cec70307::t_bcdf80b31716a1 1-34
+tests/test_schema.py
+  s_760926cec70307::t_d13f0f658fc879 5,70-86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "9580a091c52b06386c8d3236c19951dda7b614f2",
+  "prompts": {},
+  "sessions": {
+    "s_760926cec70307": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ead32-ebc5-7d02-b8f3-b1f709ab0a0e",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Artur Arapov <art87able@gmail.com>"
+    }
+  }
+}
