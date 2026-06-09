@@ -285,30 +285,36 @@ One commit, Codex-attributed. No other files.
 
 ## Task 8 — Gradio app + smoke test
 
+> Updated 2026-06-09: include the data-export button (Space storage is ephemeral — see the inference
+> addendum / ZEROGPU_SPACE_NOTES §4); the smoke test importorskips gradio (gradio is supplied by the
+> Space `sdk_version`, not listed in `requirements.txt`).
+
 ```
 Implement ONLY the Gradio UI and its smoke test. Touch only: app.py and tests/test_app_smoke.py.
 TDD: failing test first. The smoke test must not load a model or hit the network — it injects a
-fake generate() and a :memory: Store.
+fake generate() and a :memory: Store, and must importorskip gradio (gradio is provided by the Space
+sdk_version, not listed in requirements.txt).
 
-1. Write tests/test_app_smoke.py: import app, build an Unstuck with
+1. Write tests/test_app_smoke.py: at module top do `gr = pytest.importorskip("gradio")` so the test
+   skips cleanly when gradio is absent. Then import app, build an Unstuck with
    generate=lambda p: '{"steps":[{"text":"x","category":"admin","est_minutes":3}]}' and
    Store(":memory:"), call app.build_ui(svc), and assert the returned gr.Blocks is not None.
    (build_ui MUST accept an injected service so tests never load a model.)
 2. Run: python -m pytest tests/test_app_smoke.py -q
    Expected: FAIL — No module named 'app' (or build_ui missing).
 3. Implement app.py: put "src" on sys.path, import gradio. build_ui(service: Unstuck) -> gr.Blocks
-   with a task textbox, a "Break it down" button rendering a markdown table of step #, text, AI est
-   (raw_minutes), and "For you" (calibrated_minutes) held in gr.State, plus an accordion to log a
-   step's actual minutes (calls service.log_actual). A main() (mark # pragma: no cover) that makes
-   the DB dir, imports backend.generate, builds the service, and launches. Guard with
-   if __name__ == "__main__".
+   with: a task textbox; a "Break it down" button rendering a markdown table of step #, text, AI est
+   (raw_minutes), and "For you" (calibrated_minutes) held in gr.State; an accordion to log a step's
+   actual minutes (calls service.log_actual); and an "Export my data (JSON)" control that writes
+   service.store.export_json() to a tempfile and serves it for download (gr.DownloadButton or a
+   button + gr.File) — the escape hatch for ephemeral Space storage. A main() (mark # pragma: no
+   cover) that makes the DB dir, imports backend.generate, builds the service, and launches. Guard
+   with if __name__ == "__main__".
 4. Run: python -m pytest tests/test_app_smoke.py -q
    Expected: PASS (1 passed).
-5. Run the full suite — python -m pytest -q — expect all passing, then commit.
-   Commit: "feat: Gradio UI (raw vs calibrated) + smoke test"
-   Stage only: app.py tests/test_app_smoke.py
-
-One commit, Codex-attributed. No other files.
+5. Run the full suite — python -m pytest -q — expect all passing. (Commit handled by reviewer — DO
+   NOT run git.) Intended message: "feat: Gradio UI (raw vs calibrated, data export) + smoke test",
+   staging only app.py tests/test_app_smoke.py.
 ```
 
 ---
