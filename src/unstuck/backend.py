@@ -23,20 +23,21 @@ if BACKEND == "zerogpu":
     @spaces.GPU(duration=30)
     def generate(prompt: str) -> str:
         """Generate text on the Space GPU and return decoded new tokens only."""
-        input_ids = tokenizer.apply_chat_template(
+        inputs = tokenizer.apply_chat_template(
             [{"role": "user", "content": prompt}],
             add_generation_prompt=True,
             return_tensors="pt",
+            return_dict=True,
         ).to(model.device)
 
         with torch.no_grad():
             output_ids = model.generate(
-                input_ids,
+                **inputs,
                 max_new_tokens=512,
                 do_sample=False,
             )
 
-        generated_ids = output_ids[0][input_ids.shape[-1] :]
+        generated_ids = output_ids[0][inputs["input_ids"].shape[-1] :]
         return str(tokenizer.decode(generated_ids, skip_special_tokens=True))
 
 elif BACKEND == "hf_inference":
