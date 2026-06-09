@@ -1,0 +1,24 @@
+requirements.txt
+  s_8c902e9a430995::t_deb5ab3e133d66 2-5
+src/unstuck/backend.py
+  s_8c902e9a430995::t_deb5ab3e133d66 1-56
+scripts/bakeoff.py
+  s_8c902e9a430995::t_deb5ab3e133d66 1-25,27-64
+  s_8c902e9a430995::t_585c35aa627169 26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "24ba692b9ae285d29f4e9733b991ac53a1b19e54",
+  "prompts": {},
+  "sessions": {
+    "s_8c902e9a430995": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ead43-a7b3-7061-bb43-4257f5bbb92d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Artur Arapov <art87able@gmail.com>"
+    }
+  }
+}
