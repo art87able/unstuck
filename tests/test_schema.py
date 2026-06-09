@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from unstuck.prompts import breakdown_prompt, repair_prompt
 from unstuck.schema import CATEGORIES, StepValidationError, validate_steps_payload
 
 
@@ -66,3 +67,20 @@ def test_blank_text_raises() -> None:
 
 def test_categories_match_contract() -> None:
     assert set(CATEGORIES) == {"admin", "creative", "errand", "deep-work"}
+
+
+def test_breakdown_prompt_includes_task_json_categories_and_time_limit() -> None:
+    prompt = breakdown_prompt("write the quarterly review")
+
+    assert "write the quarterly review" in prompt
+    assert "json" in prompt.lower()
+    for category in CATEGORIES:
+        assert category in prompt
+    assert "25" in prompt
+
+
+def test_repair_prompt_includes_bad_output_and_error() -> None:
+    prompt = repair_prompt("task x", "GARBLED{", "no JSON object found")
+
+    assert "GARBLED{" in prompt
+    assert "no JSON object found" in prompt
