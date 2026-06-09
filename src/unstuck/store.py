@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import threading
 import time
 from typing import Any
 
@@ -12,39 +13,45 @@ class Store:
     """SQLite persistence for tasks, steps, and completed-step records."""
 
     def __init__(self, path: str = ":memory:") -> None:
-        self.conn = sqlite3.connect(path)
+        # Gradio calls handlers from worker threads; share one connection
+        # across them and serialize access with a lock.
+        self.conn = sqlite3.connect(path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
+        self._lock = threading.Lock()
         self._create_schema()
 
     def add_task(self, text: str, *, now: float | None = None) -> int:
         created_at = time.time() if now is None else now
-        cursor = self.conn.execute(
-            "insert into task (text, created_at) values (?, ?)",
-            (text, created_at),
-        )
-        self.conn.commit()
-        return int(cursor.lastrowid)
+        with self._lock:
+            cursor = self.conn.execute(
+                "insert into task (text, created_at) values (?, ?)",
+                (text, created_at),
+            )
+            self.conn.commit()
+            return int(cursor.lastrowid)
 
     def add_steps(self, task_id: int, steps: list[Step]) -> None:
-        next_ord = self._next_step_ord(task_id)
-        rows = [
-            (task_id, step.text, step.category, step.est_minutes, next_ord + index)
-            for index, step in enumerate(steps)
-        ]
-        self.conn.executemany(
-            """
-            insert into step (task_id, text, category, est_minutes, ord)
-            values (?, ?, ?, ?, ?)
-            """,
-            rows,
-        )
-        self.conn.commit()
+        with self._lock:
+            next_ord = self._next_step_ord(task_id)
+            rows = [
+                (task_id, step.text, step.category, step.est_minutes, next_ord + index)
+                for index, step in enumerate(steps)
+            ]
+            self.conn.executemany(
+                """
+                insert into step (task_id, text, category, est_minutes, ord)
+                values (?, ?, ?, ?, ?)
+                """,
+                rows,
+            )
+            self.conn.commit()
 
     def first_step_id(self, task_id: int) -> int:
-        row = self.conn.execute(
-            "select id from step where task_id = ? order by ord limit 1",
-            (task_id,),
-        ).fetchone()
+        with self._lock:
+            row = self.conn.execute(
+                "select id from step where task_id = ? order by ord limit 1",
+                (task_id,),
+            ).fetchone()
         if row is None:
             raise LookupError(f"task {task_id} has no steps")
         return int(row["id"])
@@ -59,33 +66,36 @@ class Store:
         now: float | None = None,
     ) -> int:
         completed_at = time.time() if now is None else now
-        cursor = self.conn.execute(
-            """
-            insert into record
-                (step_id, category, est_minutes, actual_minutes, completed_at)
-            values (?, ?, ?, ?, ?)
-            """,
-            (step_id, category, est, actual, completed_at),
-        )
-        self.conn.commit()
-        return int(cursor.lastrowid)
+        with self._lock:
+            cursor = self.conn.execute(
+                """
+                insert into record
+                    (step_id, category, est_minutes, actual_minutes, completed_at)
+                values (?, ?, ?, ?, ?)
+                """,
+                (step_id, category, est, actual, completed_at),
+            )
+            self.conn.commit()
+            return int(cursor.lastrowid)
 
     def get_records(self) -> list[dict[str, Any]]:
-        rows = self.conn.execute(
-            """
-            select category, est_minutes, actual_minutes
-            from record
-            order by id
-            """
-        ).fetchall()
+        with self._lock:
+            rows = self.conn.execute(
+                """
+                select category, est_minutes, actual_minutes
+                from record
+                order by id
+                """
+            ).fetchall()
         return [dict(row) for row in rows]
 
     def export_json(self) -> str:
-        payload = {
-            "tasks": self._table_rows("task"),
-            "steps": self._table_rows("step"),
-            "records": self._table_rows("record"),
-        }
+        with self._lock:
+            payload = {
+                "tasks": self._table_rows("task"),
+                "steps": self._table_rows("step"),
+                "records": self._table_rows("record"),
+            }
         return json.dumps(payload, indent=2)
 
     def _create_schema(self) -> None:
