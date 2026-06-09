@@ -228,28 +228,54 @@ One commit, Codex-attributed. No other files.
 
 ---
 
-## Task 7 — Model bake-off harness + backend wiring
+## Task 7 — Hybrid inference backend (ZeroGPU default + HF Inference fallback) + bake-off harness
+
+> Updated 2026-06-09 (see docs/superpowers/specs/2026-06-09-unstuck-inference-addendum.md): model
+> LOCKED to Qwen/Qwen3-4B-Instruct-2507; backend is a hybrid; ZeroGPU is free via the
+> build-small-hackathon Team org (the personal account is not PRO).
 
 ```
-Implement ONLY the bake-off harness and backend wiring. Touch only: scripts/bakeoff.py,
-src/unstuck/backend.py, and requirements.txt. This task has NO unit test — bakeoff.py and
-backend.py call real models and must never be imported by the test suite.
+Implement ONLY the inference backend + bake-off harness. Touch only: scripts/bakeoff.py,
+src/unstuck/backend.py, and requirements.txt. This task has NO unit test — backend.py and
+bakeoff.py import real models / call the network and MUST never be imported by the test suite.
 
-1. Write scripts/bakeoff.py: a manual harness (puts "src" on sys.path) with ~5 SAMPLE_TASKS and a
-   MODELS list of <=4B candidates (MiniCPM-4B, Nemotron-Nano-4B, Qwen3-4B). make_generate(model_id)
-   raises NotImplementedError with a note to wire ONE backend (transformers pipeline / llama-cpp /
-   HF Inference) returning generate(prompt)->str. score(model_id) runs ModelAdapter(gen,
-   max_repairs=1).breakdown over the tasks and returns the valid-JSON success rate. __main__ prints
-   each model's rate, printing SKIPPED on NotImplementedError.
-2. Implement src/unstuck/backend.py: a concrete generate(prompt)->str for the chosen winner, with
-   MODEL_ID = "REPLACE_WITH_BAKEOFF_WINNER" and a lazily-loaded (lru_cache, imported inside the
-   function) transformers text-generation pipeline (max_new_tokens=512, do_sample=False,
-   return_full_text=False) so imports stay cheap and tests never touch it.
-3. Add the winner's backend dependency to requirements.txt (default transformers>=4.44; leave a
-   comment for the llama-cpp-python / huggingface_hub alternatives).
-4. Sanity: run python -m pytest -q — the existing suite must still pass (bakeoff/backend are not
-   collected). Do NOT run scripts/bakeoff.py here (it downloads models).
-5. Commit: "feat: model bake-off harness + chosen backend wiring"
+Context: the model is LOCKED to Qwen/Qwen3-4B-Instruct-2507 (native qwen3 arch, no
+trust_remote_code). backend.py is a HYBRID exposing one generate(prompt)->str selected by the env
+var UNSTUCK_BACKEND (default "zerogpu"): a ZeroGPU/transformers path (model on the Space GPU) and an
+"hf_inference" fallback (huggingface_hub InferenceClient -> nscale/featherless).
+
+1. Write scripts/bakeoff.py: a MANUAL harness (puts "src" on sys.path) with ~5 SAMPLE_TASKS and a
+   MODELS list of <=4B candidates, Qwen/Qwen3-4B-Instruct-2507 first (MiniCPM / Nemotron-Nano as
+   alternates). make_generate(model_id) returns generate(prompt)->str backed by
+   huggingface_hub.InferenceClient(model_id).chat_completion (so the bake-off scores JSON-validity
+   over the serverless API without local weights). score(model_id) runs ModelAdapter(gen,
+   max_repairs=1).breakdown over the tasks and returns the valid-JSON success rate; __main__ prints
+   each model's rate. Keep all real network calls under the __main__ guard.
+2. Implement src/unstuck/backend.py with MODEL_ID = "Qwen/Qwen3-4B-Instruct-2507" and
+   BACKEND = os.environ.get("UNSTUCK_BACKEND", "zerogpu"):
+   - If BACKEND == "zerogpu": import spaces; import torch and transformers; load the tokenizer and
+     AutoModelForCausalLM on cuda at MODULE SCOPE (device_map="cuda", torch_dtype="auto"); define
+     generate(prompt)->str decorated @spaces.GPU(duration=30) that builds a chat prompt via
+     tokenizer.apply_chat_template(..., add_generation_prompt=True), runs
+     model.generate(max_new_tokens=512, do_sample=False), decodes ONLY the newly generated tokens,
+     and returns a plain str (NEVER a CUDA tensor).
+   - Elif BACKEND == "hf_inference": from huggingface_hub import InferenceClient; create
+     InferenceClient(MODEL_ID); define generate(prompt)->str calling
+     .chat_completion(messages=[{"role":"user","content":prompt}], max_tokens=512, temperature=0)
+     and returning choices[0].message.content.
+   Put each branch's heavy imports INSIDE that branch so importing the module with the other backend
+   selected stays cheap. Do NOT import spaces/torch at top level outside the zerogpu branch.
+3. Replace requirements.txt with the ZeroGPU runtime set (gradio is pinned via the README
+   sdk_version, NOT here; never list spaces — the platform pins it):
+       pytest>=8.0
+       torch==2.8.0
+       transformers
+       accelerate
+       huggingface_hub
+4. Sanity: run python -m pytest -q — the existing suite (23 tests) must still pass (bakeoff/backend
+   are not collected). Do NOT run scripts/bakeoff.py or import backend.py here (they need real
+   models / network).
+5. Commit: "feat: hybrid inference backend (ZeroGPU default + HF Inference fallback) + bake-off harness"
    Stage only: scripts/bakeoff.py src/unstuck/backend.py requirements.txt
 
 One commit, Codex-attributed. No other files.
