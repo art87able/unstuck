@@ -13,6 +13,7 @@ if str(SRC) not in sys.path:
 
 import gradio as gr
 
+from unstuck.calibration import calibrate, multiplier
 from unstuck.service import BreakdownView, Unstuck
 from unstuck.store import Store
 
@@ -50,6 +51,12 @@ CSS = """
   white-space: nowrap; }
 .chip-raw { background: #f5f5f4; color: #78716c; }
 .chip-you { background: #eef2ff; color: #4338ca; font-weight: 600; }
+.chip-done { background: #ecfdf5; color: #047857; font-weight: 600; }
+.step-row { align-items: center !important; gap: 10px !important; margin-bottom: 10px; }
+.step-row .step-card { flex: 1; }
+.took-input input { border-radius: 10px !important; }
+.readout { background: #eef2ff; color: #4338ca; border-radius: 12px; padding: 12px 18px;
+  font-size: 0.95rem; text-align: center; margin-top: 6px; }
 .explainer { color: #a8a29e; font-size: 0.86rem; text-align: center; margin-top: 10px; }
 footer { display: none !important; }
 """
@@ -58,62 +65,80 @@ footer { display: none !important; }
 def build_ui(service: Unstuck) -> gr.Blocks:
     """Build the Gradio UI around an injected Unstuck service."""
 
-    def render_steps(view: BreakdownView) -> tuple[str, list[dict[str, Any]]]:
-        rows = [
+    def view_rows(view: BreakdownView) -> list[dict[str, Any]]:
+        return [
             {
                 "step_id": row.step_id,
                 "text": row.text,
+                "category": row.category,
                 "raw_minutes": row.raw_minutes,
                 "calibrated_minutes": row.calibrated_minutes,
+                "logged": False,
+                "actual_minutes": None,
             }
             for row in view.rows
         ]
-        import html as html_lib
 
-        cards = ['<div id="steps-list">']
-        for index, row in enumerate(rows, start=1):
-            text = html_lib.escape(str(row["text"]))
-            cards.append(
-                '<div class="step-card">'
-                f'<div class="step-num">{index}</div>'
-                f'<div class="step-text">{text}</div>'
-                f'<div class="chip chip-raw">AI: {row["raw_minutes"]} min</div>'
-                f'<div class="chip chip-you">For you: {row["calibrated_minutes"]} min</div>'
-                "</div>"
+    def recalibrated(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        records = service.store.get_records()
+        return [
+            row
+            if row["logged"]
+            else {
+                **row,
+                "calibrated_minutes": calibrate(
+                    row["raw_minutes"], multiplier(row["category"], records)
+                ),
+            }
+            for row in rows
+        ]
+
+    def readout() -> str:
+        records = service.store.get_records()
+        if not records:
+            return ""
+        lines = []
+        for category in sorted({r["category"] for r in records}):
+            mult = multiplier(category, records)
+            n = sum(1 for r in records if r["category"] == category)
+            if mult > 1.05:
+                verdict = f"run ~{mult:.1f}× long"
+            elif mult < 0.95:
+                verdict = f"run short (~{mult:.1f}×)"
+            else:
+                verdict = "are about right"
+            lines.append(
+                f"Your <em>{category}</em> estimates {verdict} "
+                f"({n} logged) — adjusting for that."
             )
-        cards.append(
-            '<div class="explainer">"For you" recalibrates the AI estimate from the '
-            "actual times you log — your personal time-blindness, learned per category.</div>"
-        )
-        cards.append("</div>")
-        return "".join(cards), rows
+        return '<div class="readout">' + "<br>".join(lines) + "</div>"
 
-    def break_down(task: str) -> tuple[str, list[dict[str, Any]], Any]:
+    def break_down(task: str) -> tuple[list[dict[str, Any]], str]:
         clean_task = task.strip()
         if not clean_task:
-            return (
-                '<div class="explainer">Enter a task to break down.</div>',
-                [],
-                gr.update(choices=[], value=None),
-            )
+            return [], '<div class="explainer">Enter a task to break down.</div>'
+        return view_rows(service.breakdown(clean_task)), readout()
 
-        html, rows = render_steps(service.breakdown(clean_task))
-        choices = [
-            (f"{index}. {row['text']}", row["step_id"])
-            for index, row in enumerate(rows, start=1)
-        ]
-        return html, rows, gr.update(choices=choices, value=None)
+    def log_step(
+        step_id: int,
+    ) -> Any:
+        def handler(
+            minutes: float | None, rows: list[dict[str, Any]]
+        ) -> tuple[list[dict[str, Any]], str]:
+            if minutes is None or minutes <= 0:
+                gr.Warning("Enter actual minutes greater than 0.")
+                return rows, readout()
+            actual = int(round(minutes))
+            service.log_actual(step_id, actual)
+            rows = [
+                {**row, "logged": True, "actual_minutes": actual}
+                if row["step_id"] == step_id
+                else row
+                for row in rows
+            ]
+            return recalibrated(rows), readout()
 
-    def log_actual(step_id: int | None, actual_minutes: float | None) -> str:
-        if step_id is None:
-            return "Choose a step first."
-        if actual_minutes is None or actual_minutes <= 0:
-            return "Enter actual minutes greater than 0."
-
-        service.log_actual(int(step_id), int(round(actual_minutes)))
-        return (
-            "Logged — future estimates in this category now lean on your real pace."
-        )
+        return handler
 
     def export_data() -> str:
         handle = tempfile.NamedTemporaryFile(
@@ -150,17 +175,57 @@ def build_ui(service: Unstuck) -> gr.Blocks:
             inputs=task,
             cache_examples=False,
         )
-        steps_output = gr.HTML()
+        readout_output = gr.HTML()
 
-        with gr.Accordion("Log actual time", open=False):
-            step_choice = gr.Dropdown(label="Step", choices=[])
-            actual_minutes = gr.Number(
-                label="Actual minutes",
-                minimum=1,
-                precision=0,
+        @gr.render(inputs=rows_state)
+        def render_rows(rows: list[dict[str, Any]]) -> None:
+            import html as html_lib
+
+            if not rows:
+                return
+            for index, row in enumerate(rows, start=1):
+                text = html_lib.escape(str(row["text"]))
+                with gr.Row(elem_classes="step-row"):
+                    gr.HTML(
+                        '<div class="step-card">'
+                        f'<div class="step-num">{"✓" if row["logged"] else index}</div>'
+                        f'<div class="step-text">{text}</div>'
+                        f'<div class="chip chip-raw">AI: {row["raw_minutes"]} min</div>'
+                        + (
+                            f'<div class="chip chip-done">took {row["actual_minutes"]} min</div>'
+                            if row["logged"]
+                            else f'<div class="chip chip-you">For you: '
+                            f'{row["calibrated_minutes"]} min</div>'
+                        )
+                        + "</div>",
+                        padding=False,
+                    )
+                    if not row["logged"]:
+                        minutes = gr.Number(
+                            show_label=False,
+                            container=False,
+                            minimum=1,
+                            precision=0,
+                            placeholder="took (min)",
+                            scale=0,
+                            min_width=110,
+                            elem_classes="took-input",
+                        )
+                        done = gr.Button(
+                            "Done", size="sm", scale=0, min_width=70, variant="secondary"
+                        )
+                        done.click(
+                            log_step(int(row["step_id"])),
+                            inputs=[minutes, rows_state],
+                            outputs=[rows_state, readout_output],
+                            api_visibility="private",
+                        )
+            gr.HTML(
+                '<div class="explainer">"For you" recalibrates the AI estimate from the '
+                "actual times you log — your personal time-blindness, learned per "
+                "category. Log a step with <em>took (min) → Done</em> and watch the "
+                "remaining estimates adjust.</div>"
             )
-            log_button = gr.Button("Log actual")
-            log_status = gr.Markdown()
 
         export_button = gr.Button("Export my data (JSON)")
         export_file = gr.File(label="Download", interactive=False)
@@ -168,12 +233,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
         break_button.click(
             break_down,
             inputs=task,
-            outputs=[steps_output, rows_state, step_choice],
-        )
-        log_button.click(
-            log_actual,
-            inputs=[step_choice, actual_minutes],
-            outputs=log_status,
+            outputs=[rows_state, readout_output],
         )
         export_button.click(export_data, outputs=export_file)
 
