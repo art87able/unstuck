@@ -1,0 +1,19 @@
+docs/field-notes.md
+  s_3ec26ce3952628::t_014c2f18fcfb03 1-79
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "8242cfdab8762f0bdaf7536c5cfb33049ca9bcd3",
+  "prompts": {},
+  "sessions": {
+    "s_3ec26ce3952628": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7e344434-be17-4f41-8f72-b3bae7822c91",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Artur Arapov <art87able@gmail.com>"
+    }
+  }
+}
