@@ -363,3 +363,46 @@ docs/deliverables/social-post.md. No code, no tests.
 
 (Creating the Space, recording the video, and posting are manual user steps — not part of this task.)
 ```
+
+---
+
+## Task 10 — Prompt tuning (better breakdowns from the 4B model)
+
+> Added 2026-06-10: the v1 prompt's single-step example biases the small model toward terse,
+> mono-category output. Tune the prompt; the schema and adapter stay untouched.
+
+```
+Improve ONLY the model prompts. Touch only: src/unstuck/prompts.py and tests/test_prompts.py (new).
+Follow TDD: failing tests first, then the prompt changes. Do NOT modify schema.py, model_adapter.py,
+or any other file.
+
+1. Write tests/test_prompts.py covering breakdown_prompt and repair_prompt:
+   - breakdown_prompt(task) contains the task text, every category name from unstuck.schema.CATEGORIES,
+     and the literal substring '"steps"'.
+   - The few-shot example inside breakdown_prompt is itself VALID: extract the example JSON object
+     from the prompt (regex the line containing '"steps"' in the example block) and pass it through
+     unstuck.schema.validate_steps_payload — it must parse with 3+ steps, more than one distinct
+     category, every est_minutes <= 25, and the FIRST example step's est_minutes <= 5.
+   - breakdown_prompt mentions a tiny starter first step (assert "first step" appears, case-insensitive).
+   - repair_prompt(task, bad, err) contains the task, the bad output, the error text, and '"steps"'.
+2. Run: python -m pytest tests/test_prompts.py -q  — expect FAIL on the new assertions.
+3. Rewrite the prompt text in src/unstuck/prompts.py (keep the function signatures and the
+   JSON-only output contract exactly as-is):
+   - Keep: 4-8 ordered steps, one concrete action each, positive-integer minutes, 25-minute hard max,
+     JSON-only with the exact {"steps":[{"text","category","est_minutes"}]} schema.
+   - Add a one-line definition per category: admin (forms, email, scheduling, tidying),
+     creative (writing, design, making something new), errand (leaving the house or fetching/buying),
+     deep-work (sustained focused thinking or problem-solving).
+   - Add: the FIRST step must be a tiny starter action of 5 minutes or less that gets the person
+     physically moving or the file/page open (beats ADHD task-initiation paralysis).
+   - Add: every step text starts with an imperative verb; no vague steps like "work on it".
+   - Replace the one-step example with ONE worked example task ("Clean my apartment before a friend
+     visits tonight") whose JSON answer has 4 steps, at least two distinct categories, a first step
+     of <=5 minutes, and all estimates <=25. Keep the example on a single line so it stays easy to
+     regex in tests.
+   - repair_prompt: keep its structure, just inherit the improved system block.
+4. Run: python -m pytest -q  — expect the FULL suite passing (existing 24 tests + the new ones).
+5. (Commit handled by reviewer — DO NOT run git.) Intended message:
+   "feat(prompts): category definitions, starter-step rule, richer few-shot example"
+   staging only src/unstuck/prompts.py tests/test_prompts.py.
+```
