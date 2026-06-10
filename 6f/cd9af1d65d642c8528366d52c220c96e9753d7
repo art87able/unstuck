@@ -1,0 +1,23 @@
+app.py
+  s_3ec26ce3952628::t_1c123fa15a1a2b 114-116
+  s_3ec26ce3952628::t_7651d4672d15b1 100,105
+  s_3ec26ce3952628::t_db6f1d4b5e0a37 131-135,144-153
+  s_3ec26ce3952628::t_b496c35db4f604 190
+  s_3ec26ce3952628::t_9a322a4571ef87 20-57,71-73,75-82,84-89,94-98
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "6fcd9af1d65d642c8528366d52c220c96e9753d7",
+  "prompts": {},
+  "sessions": {
+    "s_3ec26ce3952628": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7e344434-be17-4f41-8f72-b3bae7822c91",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Artur Arapov <art87able@gmail.com>"
+    }
+  }
+}
