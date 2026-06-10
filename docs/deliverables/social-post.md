@@ -8,4 +8,5 @@ Then it learns your personal time-blindness from actuals and recalibrates future
 
 Runs on a ≤4B model (`Qwen/Qwen3-4B-Instruct-2507`) and is built for an ADHD brain: less planning fog, more honest next steps.
 
-Try it: [Space link]
+Try it: https://huggingface.co/spaces/build-small-hackathon/unstuck
+Source: https://github.com/art87able/unstuck
