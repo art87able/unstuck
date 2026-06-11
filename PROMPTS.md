@@ -744,3 +744,96 @@ Touch ONLY: app.py and tests/test_app_smoke.py. TDD: failing tests first. Do NOT
    "feat(ui): progressive reveal — spotlight the next step, dim the rest"
    staging only app.py tests/test_app_smoke.py.
 ```
+
+## Task 20 — "New plan" button (clear the board + the snapshot)
+
+> Added 2026-06-11: plan persistence (Task 17) means the old plan reappears on every reload
+> with no way to dismiss it. A New plan button clears rows, task box, and the saved snapshot.
+
+```
+Touch ONLY: src/unstuck/store.py, app.py, tests/test_store.py, tests/test_app_smoke.py.
+TDD: failing tests first. Do NOT run git.
+
+1. Store: def clear_plan(self) -> None — delete the plan_snapshot row (id=1) if present.
+   Tests: save then clear -> load_plan() is None; clear on fresh store doesn't raise.
+2. app.py UI: a "New plan" gr.Button (variant="secondary") next to "Break it down". Handler:
+   calls service.store.clear_plan() (wrapped try/except Exception: pass), returns
+   ([], "", "", patterns(), gr.update(value="")) wired to
+   [rows_state, readout_output, summary_output, patterns_output, task].
+   Note: readout_output cleared to "" deliberately — fresh board, history stays in the store
+   and still shows inside the patterns accordion.
+3. Run: python -m pytest -q — FULL suite green (63 + new).
+4. (Commit handled by reviewer.) Intended message:
+   "feat(store,ui): New plan button — clear board and saved snapshot"
+   staging only the four named files.
+```
+
+## Task 21 — Skip step (resolve without polluting calibration)
+
+> Added 2026-06-11: real plans contain steps that stop mattering. Skipping must advance the
+> spotlight but record nothing — a skipped step is not calibration data.
+
+```
+Touch ONLY: app.py and tests/test_app_smoke.py. TDD: failing tests first. Do NOT run git.
+
+1. Row dicts gain "skipped": bool (False in view_rows(); use row.get("skipped") everywhere
+   you read it so old fixtures/snapshots without the key keep working).
+2. Helper changes (all module-level, all tested):
+   - next_step_id: a row is resolved when logged OR skipped — return the first row with
+     neither. Tests: skipped first row -> second's id; all logged-or-skipped -> None.
+   - summary_html: skipped rows contribute NOTHING to total_for_you or total_raw; n_done
+     counts only logged. Append " · {k} skipped" to the text when k > 0.
+     Test: 3 rows (1 logged, 1 skipped, 1 pending) -> totals exclude the skipped row,
+     text contains "1 skipped".
+   - plan_markdown: skipped rows render "- [-] {text} (skipped)" and add nothing to the
+     total. Test: golden line.
+3. UI: a "Skip" button (size="sm", variant="secondary") on the spotlight row only, after
+   "Still stuck?". Handler marks that row {"skipped": True, "started_at": None}, does NOT
+   call service.log_actual, persists, returns the usual
+   (rows, readout(), summary_html(rows), patterns()) outputs.
+4. render_rows: a skipped row renders card-only (no controls), class
+   "step-card step-skipped", step-num shows "–" and chip area shows
+   '<div class="chip chip-skip">skipped</div>' instead of the For-you/took chips.
+   CSS: .step-skipped { opacity:0.45; } .step-skipped .step-text
+   { text-decoration:line-through; } .chip-skip { background:#f5f5f4; color:#a8a29e; }
+5. Run: python -m pytest -q — FULL suite green.
+6. (Commit handled by reviewer.) Intended message:
+   "feat(ui): Skip step — resolve a step without logging calibration data"
+   staging only app.py tests/test_app_smoke.py.
+```
+
+## Task 22 — Completion banner (close the loop with honest stats)
+
+> Added 2026-06-11: when the last step resolves, nothing happens — anticlimax. A banner with
+> honest stats rewards finishing and showcases the calibration story in one line.
+
+```
+Touch ONLY: app.py and tests/test_app_smoke.py. TDD: failing tests first. Do NOT run git.
+
+1. Module-level pure helper:
+     def completion_html(rows: list[dict]) -> str
+   - "" unless rows is non-empty AND every row is logged or skipped AND at least one is
+     logged.
+   - Else: n_done = logged count, n_skipped = skipped count,
+     took = sum(actual_minutes of logged rows), est = sum(raw_minutes of logged rows).
+     Line 1: "🎉 Done — {n_done} steps in {took} min." (append " ({n_skipped} skipped)"
+     when n_skipped > 0).
+     Line 2: ratio = took/est: ratio > 1.05 -> "The AI guessed {est} min — you took
+     {ratio:.1f}× longer, and Unstuck now knows that."; ratio < 0.95 -> "The AI guessed
+     {est} min — you beat it, finishing in {ratio:.1f}× the time."; else -> "The AI guessed
+     {est} min — almost exactly right."
+     Wrap: <div class="completion">{line1}<br>{line2}</div>.
+   Tests: incomplete plan -> ""; all-skipped -> ""; done-with-skips golden; the three ratio
+   verdicts.
+2. UI: summary handlers gain nothing new — instead summary_html callers stay as-is and the
+   completion banner is PREPENDED by the existing summary output position: change every
+   handler return that currently sends summary_html(rows) to send
+   completion_html(rows) + summary_html(rows) (string concat; completion is "" until done).
+   Keep restore_snapshot consistent (its summary return value gets the same treatment).
+3. CSS: .completion { background:#ecfdf5; color:#047857; border-radius:12px;
+   padding:14px 18px; font-size:1rem; text-align:center; margin-top:10px; font-weight:600; }
+4. Run: python -m pytest -q — FULL suite green.
+5. (Commit handled by reviewer.) Intended message:
+   "feat(ui): completion banner — honest stats when the plan is done"
+   staging only app.py tests/test_app_smoke.py.
+```
