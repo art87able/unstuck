@@ -5,8 +5,13 @@ import os
 
 MODEL_ID = "Qwen/Qwen3-4B-Instruct-2507"
 BACKEND = os.environ.get("UNSTUCK_BACKEND", "zerogpu")
-NEBIUS_BASE_URL = os.environ.get("NEBIUS_BASE_URL", "https://api.studio.nebius.com/v1/")
-NEBIUS_MODEL = os.environ.get("NEBIUS_MODEL", MODEL_ID)
+# Token Factory is Nebius's OpenAI-compatible serverless inference API.
+# Qwen3-4B is not in its catalog; the 30B-A3B MoE (3B active params) is the
+# closest small-model match from the same family.
+NEBIUS_BASE_URL = os.environ.get(
+    "NEBIUS_BASE_URL", "https://api.tokenfactory.nebius.com/v1/"
+)
+NEBIUS_MODEL = os.environ.get("NEBIUS_MODEL", "Qwen/Qwen3-30B-A3B-Instruct-2507")
 
 
 if BACKEND == "zerogpu":
