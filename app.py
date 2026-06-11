@@ -454,7 +454,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
         return rows, readout_html, summary, patterns_html_, task_update, data
 
     def break_down(
-        task: str, data: dict
+        task: str, data: dict, granularity: str
     ) -> tuple[list[dict[str, Any]], str, str, str, dict]:
         clean_task = task.strip()
         records = _records_from_data(data)
@@ -468,7 +468,9 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                 updated,
             )
         try:
-            rows = recalibrated(view_rows(service.breakdown(clean_task)), records)
+            rows = recalibrated(
+                view_rows(service.breakdown(clean_task, granularity)), records
+            )
         except Exception:
             gr.Warning("The model backend is busy. Try again in a minute.")
             updated = persist(data, clean_task, [])
@@ -629,7 +631,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
 
             try:
                 new_rows = recalibrated(
-                    view_rows(service.breakdown(step_text)), records
+                    view_rows(service.breakdown(step_text, "tiny")), records
                 )
             except Exception:
                 gr.Warning(
@@ -720,6 +722,12 @@ def build_ui(service: Unstuck) -> gr.Blocks:
             label="Task",
             placeholder="Paste the overwhelming thing here",
             lines=3,
+        )
+        granularity = gr.Radio(
+            choices=["chunky", "regular", "tiny"],
+            value="regular",
+            label="Step size",
+            info="How small should the pieces be?",
         )
         with gr.Row():
             break_button = gr.Button("Break it down", variant="primary")
@@ -896,7 +904,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
 
         break_button.click(
             break_down,
-            inputs=[task, user_data],
+            inputs=[task, user_data, granularity],
             outputs=[
                 rows_state,
                 readout_output,
@@ -919,7 +927,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
         )
         task.submit(
             break_down,
-            inputs=[task, user_data],
+            inputs=[task, user_data, granularity],
             outputs=[
                 rows_state,
                 readout_output,

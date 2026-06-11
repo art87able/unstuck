@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 import re
 
-from unstuck.prompts import breakdown_prompt, repair_prompt
+import pytest
+
+from unstuck.prompts import GRANULARITY_RULES, breakdown_prompt, repair_prompt
 from unstuck.schema import CATEGORIES, validate_steps_payload
 
 
@@ -42,6 +44,24 @@ def test_breakdown_prompt_mentions_tiny_first_step() -> None:
     assert "first step" in prompt.lower()
 
 
+def test_breakdown_prompt_defaults_to_regular_granularity() -> None:
+    prompt = breakdown_prompt("Write the project report")
+
+    assert GRANULARITY_RULES["regular"] in prompt
+
+
+@pytest.mark.parametrize("granularity", ["chunky", "regular", "tiny"])
+def test_breakdown_prompt_includes_granularity_rule(granularity: str) -> None:
+    prompt = breakdown_prompt("Write the project report", granularity)
+
+    assert GRANULARITY_RULES[granularity] in prompt
+
+
+def test_breakdown_prompt_rejects_unknown_granularity() -> None:
+    with pytest.raises(ValueError):
+        breakdown_prompt("Write the project report", "huge")
+
+
 def test_repair_prompt_includes_context_and_schema_marker() -> None:
     task = "Submit the grant application"
     bad_output = "not json"
@@ -53,3 +73,14 @@ def test_repair_prompt_includes_context_and_schema_marker() -> None:
     assert bad_output in prompt
     assert error in prompt
     assert '"steps"' in prompt
+
+
+def test_repair_prompt_includes_granularity_rule() -> None:
+    prompt = repair_prompt(
+        "Submit the grant application",
+        "not json",
+        "payload must be an object",
+        "tiny",
+    )
+
+    assert GRANULARITY_RULES["tiny"] in prompt

@@ -27,8 +27,8 @@ class ModelAdapter:
         self.generate = generate
         self.max_repairs = max_repairs
 
-    def breakdown(self, task: str) -> Steps:
-        raw = self.generate(breakdown_prompt(task))
+    def breakdown(self, task: str, granularity: str = "regular") -> Steps:
+        raw = self.generate(breakdown_prompt(task, granularity))
 
         for attempt in range(self.max_repairs + 1):
             try:
@@ -36,7 +36,7 @@ class ModelAdapter:
             except StepValidationError as exc:
                 if attempt >= self.max_repairs:
                     raise
-                raw = self.generate(repair_prompt(task, raw, str(exc)))
+                raw = self.generate(repair_prompt(task, raw, str(exc), granularity))
                 continue
 
             steps.task = task

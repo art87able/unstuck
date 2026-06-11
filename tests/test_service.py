@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from unstuck.prompts import GRANULARITY_RULES
 from unstuck.service import Unstuck
 from unstuck.store import Store
 
@@ -27,3 +28,17 @@ def test_breakdown_calibrates_with_learned_category_history() -> None:
 
     assert view.rows[0].raw_minutes == 10
     assert view.rows[0].calibrated_minutes == 30
+
+
+def test_breakdown_passes_granularity_to_model_prompt() -> None:
+    prompts: list[str] = []
+
+    def generate(prompt: str) -> str:
+        prompts.append(prompt)
+        return GOOD
+
+    app = Unstuck(generate=generate, store=Store(":memory:"))
+
+    app.breakdown("write review", granularity="tiny")
+
+    assert GRANULARITY_RULES["tiny"] in prompts[0]

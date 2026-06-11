@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from unstuck.model_adapter import ModelAdapter
+from unstuck.prompts import GRANULARITY_RULES
 from unstuck.schema import StepValidationError
 
 
@@ -54,3 +55,33 @@ def test_raises_after_exhausting_repairs() -> None:
 
     with pytest.raises(StepValidationError):
         adapter.breakdown("write review")
+
+
+def test_breakdown_passes_granularity_to_first_prompt() -> None:
+    prompts: list[str] = []
+
+    def generate(prompt: str) -> str:
+        prompts.append(prompt)
+        return GOOD
+
+    adapter = ModelAdapter(generate)
+
+    adapter.breakdown("write review", granularity="tiny")
+
+    assert GRANULARITY_RULES["tiny"] in prompts[0]
+
+
+def test_repair_prompt_keeps_granularity() -> None:
+    prompts: list[str] = []
+
+    def generate(prompt: str) -> str:
+        prompts.append(prompt)
+        return [GARBLED, GOOD][len(prompts) - 1]
+
+    adapter = ModelAdapter(generate, max_repairs=1)
+
+    adapter.breakdown("write review", granularity="tiny")
+
+    assert len(prompts) == 2
+    assert GRANULARITY_RULES["tiny"] in prompts[0]
+    assert GRANULARITY_RULES["tiny"] in prompts[1]

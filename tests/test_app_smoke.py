@@ -7,6 +7,7 @@ import pytest
 gr = pytest.importorskip("gradio")
 
 import app
+from unstuck.prompts import GRANULARITY_RULES
 from unstuck.service import Unstuck
 from unstuck.store import Store
 
@@ -674,5 +675,37 @@ def test_break_down_calibrates_from_browser_records() -> None:
         summary = next(r for r in res if isinstance(r, str) and "summary" in r)
         assert "~20 min total" in summary
         assert "AI estimate: 10 min" in summary
+    finally:
+        ui.close()
+
+
+def test_break_down_api_passes_tiny_granularity_to_prompt() -> None:
+    prompts: list[str] = []
+
+    def fake_generate(prompt: str) -> str:
+        prompts.append(prompt)
+        return json.dumps(
+            {
+                "steps": [
+                    {"text": "Open the folder", "category": "admin", "est_minutes": 5},
+                ]
+            }
+        )
+
+    service = Unstuck(generate=fake_generate, store=Store(":memory:"))
+    ui = app.build_ui(service)
+    ui.launch(prevent_thread_lock=True, server_port=7951, quiet=True)
+    try:
+        from gradio_client import Client
+
+        client = Client("http://127.0.0.1:7951", verbose=False)
+        client.predict(
+            "File my taxes",
+            {"records": [], "plan": None},
+            "tiny",
+            api_name="/break_down",
+        )
+
+        assert GRANULARITY_RULES["tiny"] in prompts[0]
     finally:
         ui.close()
