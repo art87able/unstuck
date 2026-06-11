@@ -131,3 +131,21 @@ def test_parse_import_imports_file_and_returns_status(tmp_path) -> None:
     status = app.parse_import(str(path), Store(":memory:"))
 
     assert status == "Imported 1 records (0 duplicates skipped)"
+
+
+def test_finish_minutes_manual_wins_over_timer() -> None:
+    assert app.finish_minutes(7.6, started_at=100.0, now=700.0) == 8
+
+
+def test_finish_minutes_timer_rounds_and_floors_at_one() -> None:
+    assert app.finish_minutes(None, started_at=100.0, now=250.0) == 2
+    assert app.finish_minutes(None, started_at=100.0, now=130.0) == 1
+
+
+def test_finish_minutes_neither_set_returns_none() -> None:
+    assert app.finish_minutes(None, started_at=None, now=100.0) is None
+
+
+def test_finish_minutes_non_positive_manual_falls_through() -> None:
+    assert app.finish_minutes(0, started_at=100.0, now=250.0) == 2
+    assert app.finish_minutes(-1, started_at=None, now=250.0) is None

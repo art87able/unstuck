@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
@@ -52,6 +53,7 @@ CSS = """
 .chip-raw { background: #f5f5f4; color: #78716c; }
 .chip-you { background: #eef2ff; color: #4338ca; font-weight: 600; }
 .chip-done { background: #ecfdf5; color: #047857; font-weight: 600; }
+.chip-timer { background: #fef3c7; color: #b45309; font-weight: 600; }
 .step-row { align-items: center !important; gap: 10px !important; margin-bottom: 10px; }
 .step-row .step-card { flex: 1; }
 .took-input input { border-radius: 10px !important; }
@@ -62,6 +64,17 @@ CSS = """
 .explainer { color: #a8a29e; font-size: 0.86rem; text-align: center; margin-top: 10px; }
 footer { display: none !important; }
 """
+
+
+def finish_minutes(
+    manual: float | None, started_at: float | None, now: float
+) -> int | None:
+    """Return manually entered minutes or compute elapsed timer minutes."""
+    if manual is not None and manual > 0:
+        return int(round(manual))
+    if started_at is not None:
+        return max(1, int(round((now - started_at) / 60.0)))
+    return None
 
 
 def summary_html(rows: list[dict[str, Any]]) -> str:
@@ -121,6 +134,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                 "calibrated_minutes": row.calibrated_minutes,
                 "logged": False,
                 "actual_minutes": None,
+                "started_at": None,
             }
             for row in view.rows
         ]
@@ -182,18 +196,37 @@ def build_ui(service: Unstuck) -> gr.Blocks:
         def handler(
             minutes: float | None, rows: list[dict[str, Any]]
         ) -> tuple[list[dict[str, Any]], str, str]:
-            if minutes is None or minutes <= 0:
-                gr.Warning("Enter actual minutes greater than 0.")
+            row = next((row for row in rows if row["step_id"] == step_id), None)
+            if row is None:
                 return rows, readout(), summary_html(rows)
-            actual = int(round(minutes))
+            actual = finish_minutes(minutes, row.get("started_at"), time.time())
+            if actual is None:
+                gr.Warning("Press Start first or enter minutes.")
+                return rows, readout(), summary_html(rows)
             service.log_actual(step_id, actual)
             rows = [
-                {**row, "logged": True, "actual_minutes": actual}
+                {**row, "logged": True, "actual_minutes": actual, "started_at": None}
                 if row["step_id"] == step_id
                 else row
                 for row in rows
             ]
             rows = recalibrated(rows)
+            return rows, readout(), summary_html(rows)
+
+        return handler
+
+    def start_step(
+        step_id: int,
+    ) -> Any:
+        def handler(
+            rows: list[dict[str, Any]]
+        ) -> tuple[list[dict[str, Any]], str, str]:
+            rows = [
+                {**row, "started_at": time.time()}
+                if row["step_id"] == step_id
+                else row
+                for row in rows
+            ]
             return rows, readout(), summary_html(rows)
 
         return handler
@@ -301,10 +334,28 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                             else f'<div class="chip chip-you">For you: '
                             f'{row["calibrated_minutes"]} min</div>'
                         )
+                        + (
+                            '<div class="chip chip-timer">⏱ timing</div>'
+                            if row.get("started_at") is not None and not row["logged"]
+                            else ""
+                        )
                         + "</div>",
                         padding=False,
                     )
                     if not row["logged"]:
+                        start = gr.Button(
+                            "Restart" if row.get("started_at") is not None else "Start",
+                            size="sm",
+                            scale=0,
+                            min_width=80,
+                            variant="secondary",
+                        )
+                        start.click(
+                            start_step(int(row["step_id"])),
+                            inputs=rows_state,
+                            outputs=[rows_state, readout_output, summary_output],
+                            api_visibility="private",
+                        )
                         minutes = gr.Number(
                             show_label=False,
                             container=False,
