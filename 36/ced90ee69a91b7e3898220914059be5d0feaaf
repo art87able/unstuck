@@ -1,0 +1,19 @@
+docs/roadmap.md
+  s_7e4fa86e567c5a::t_5ea7c2150ff61d 34-41
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "36ced90ee69a91b7e3898220914059be5d0feaaf",
+  "prompts": {},
+  "sessions": {
+    "s_7e4fa86e567c5a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a02f791d-1b71-4a66-8d61-fd5754bf55d3",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Artur Arapov <art87able@gmail.com>"
+    }
+  }
+}
