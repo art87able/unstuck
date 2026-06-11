@@ -475,26 +475,59 @@ def test_build_ui_does_not_call_backend() -> None:
     assert isinstance(ui, gr.Blocks)
 
 
-def test_parse_import_imports_file_and_returns_status(tmp_path) -> None:
-    payload = {
-        "tasks": [],
-        "steps": [],
-        "records": [
-            {
-                "step_id": 99,
-                "category": "admin",
-                "est_minutes": 5,
-                "actual_minutes": 8,
-                "completed_at": 456.0,
-            }
-        ],
+def test_make_record_returns_browser_state_record() -> None:
+    assert app.make_record("admin", 5, 8, 456.0) == {
+        "category": "admin",
+        "est_minutes": 5,
+        "actual_minutes": 8,
+        "completed_at": 456.0,
     }
-    path = tmp_path / "unstuck.json"
-    path.write_text(json.dumps(payload), encoding="utf-8")
 
-    status = app.parse_import(str(path), Store(":memory:"))
 
-    assert status == "Imported 1 records (0 duplicates skipped)"
+def test_export_payload_roundtrips_through_merge_records() -> None:
+    records = [
+        app.make_record("admin", 5, 8, 456.0),
+        app.make_record("creative", 10, 12, 789.0),
+    ]
+
+    merged, imported, skipped = app.merge_records([], app.export_payload(records))
+
+    assert merged == records
+    assert imported == 2
+    assert skipped == 0
+
+
+def test_merge_records_skips_existing_duplicates() -> None:
+    records = [app.make_record("admin", 5, 8, 456.0)]
+
+    merged, imported, skipped = app.merge_records(records, app.export_payload(records))
+
+    assert merged == records
+    assert imported == 0
+    assert skipped == 1
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        "{",
+        json.dumps([]),
+        json.dumps({"tasks": [], "steps": []}),
+        json.dumps({"records": "nope"}),
+        json.dumps({"records": [None]}),
+        json.dumps({"records": [{"category": 12, "est_minutes": 5, "actual_minutes": 8, "completed_at": 1.0}]}),
+        json.dumps({"records": [{"category": "admin", "est_minutes": 0, "actual_minutes": 8, "completed_at": 1.0}]}),
+        json.dumps({"records": [{"category": "admin", "est_minutes": 5, "actual_minutes": True, "completed_at": 1.0}]}),
+        json.dumps({"records": [{"category": "admin", "est_minutes": 5, "actual_minutes": 8}]}),
+    ],
+)
+def test_merge_records_bad_payloads_raise_value_error(payload: str) -> None:
+    existing = [app.make_record("admin", 5, 8, 456.0)]
+
+    with pytest.raises(ValueError):
+        app.merge_records(existing, payload)
+
+    assert existing == [app.make_record("admin", 5, 8, 456.0)]
 
 
 def test_finish_minutes_manual_wins_over_timer() -> None:
@@ -515,21 +548,30 @@ def test_finish_minutes_non_positive_manual_falls_through() -> None:
     assert app.finish_minutes(-1, started_at=None, now=250.0) is None
 
 
-def test_snapshot_writes_rows_json_to_store() -> None:
-    store = Store(":memory:")
+def test_with_plan_returns_new_data_with_plan_snapshot() -> None:
+    data = {"records": [app.make_record("admin", 5, 8, 456.0)], "plan": None}
     rows = [{"step_id": 1, "text": "Open doc", "logged": False}]
 
-    app.snapshot(store, "Write review", rows)
+    updated = app.with_plan(data, "Write review", rows)
 
-    saved = store.load_plan()
-    assert saved is not None
-    task, rows_json = saved
-    assert task == "Write review"
-    assert json.loads(rows_json) == rows
+    assert updated == {
+        "records": data["records"],
+        "plan": {"task": "Write review", "rows": rows},
+    }
+    assert data["plan"] is None
 
 
-def test_restore_roundtrips_saved_rows_and_task() -> None:
-    store = Store(":memory:")
+def test_with_records_returns_new_data_with_records() -> None:
+    data = {"records": [], "plan": {"task": "Write review", "rows": []}}
+    records = [app.make_record("admin", 5, 8, 456.0)]
+
+    updated = app.with_records(data, records)
+
+    assert updated == {"records": records, "plan": data["plan"]}
+    assert data["records"] == []
+
+
+def test_restore_roundtrips_browser_plan_and_records() -> None:
     rows = [
         {
             "step_id": 1,
@@ -552,40 +594,44 @@ def test_restore_roundtrips_saved_rows_and_task() -> None:
             "started_at": 1234.5,
         },
     ]
-    app.snapshot(store, "Write review", rows)
+    data = {
+        "records": [app.make_record("admin", 5, 8, 456.0)],
+        "plan": {"task": "Write review", "rows": rows},
+    }
 
     restored_rows, readout, summary, patterns, task_update = app.restore_snapshot(
-        store, lambda: "learned readout"
+        data, lambda records: "learned readout" if records else ""
     )
 
     assert restored_rows == rows
     assert readout == "learned readout"
     assert "20" in summary
-    assert patterns == ""
+    assert "admin" in patterns
     assert task_update["value"] == "Write review"
 
 
-def test_restore_corrupted_rows_json_yields_empty_state() -> None:
-    store = Store(":memory:")
-    store.save_plan("Write review", "{")
+def test_restore_malformed_browser_plan_yields_empty_state() -> None:
+    data = {"records": [app.make_record("admin", 5, 8, 456.0)], "plan": {"rows": "bad"}}
 
     rows, readout, summary, patterns, task_update = app.restore_snapshot(
-        store, lambda: "learned readout"
+        data, lambda records: "learned readout" if records else ""
     )
 
     assert rows == []
     assert readout == "learned readout"
     assert summary == ""
-    assert patterns == ""
+    assert "admin" in patterns
     assert "value" not in task_update
 
 
-def test_new_plan_clears_visible_state_and_saved_snapshot() -> None:
-    store = Store(":memory:")
-    store.save_plan("Write review", '[{"step_id": 1}]')
+def test_new_plan_clears_browser_plan_but_keeps_records() -> None:
+    data = {
+        "records": [app.make_record("admin", 5, 8, 456.0)],
+        "plan": {"task": "Write review", "rows": [{"step_id": 1}]},
+    }
 
-    rows, readout, summary, patterns, task_update = app.new_plan(
-        store, lambda: "pattern html"
+    rows, readout, summary, patterns, task_update, updated = app.new_plan(
+        data, lambda records: "pattern html" if records else ""
     )
 
     assert rows == []
@@ -593,20 +639,5 @@ def test_new_plan_clears_visible_state_and_saved_snapshot() -> None:
     assert summary == ""
     assert patterns == "pattern html"
     assert task_update["value"] == ""
-    assert store.load_plan() is None
-
-
-def test_new_plan_ignores_clear_plan_errors() -> None:
-    class BrokenStore:
-        def clear_plan(self) -> None:
-            raise RuntimeError("locked")
-
-    rows, readout, summary, patterns, task_update = app.new_plan(
-        BrokenStore(), lambda: ""
-    )
-
-    assert rows == []
-    assert readout == ""
-    assert summary == ""
-    assert patterns == ""
-    assert task_update["value"] == ""
+    assert updated == {"records": data["records"], "plan": None}
+    assert data["plan"] is not None

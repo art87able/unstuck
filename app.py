@@ -104,9 +104,105 @@ def next_step_id(rows: list[dict]) -> int | None:
     return None
 
 
-def snapshot(store: Store, task: str, rows: list[dict]) -> None:
-    """Persist the visible plan rows for page-load recovery."""
-    store.save_plan(task, json.dumps(rows))
+def make_record(
+    category: str, est_minutes: int, actual_minutes: int, now: float
+) -> dict[str, Any]:
+    """Return one browser-stored calibration record."""
+    return {
+        "category": category,
+        "est_minutes": est_minutes,
+        "actual_minutes": actual_minutes,
+        "completed_at": now,
+    }
+
+
+def _record_key(record: dict[str, Any]) -> tuple[Any, Any, Any, Any]:
+    return (
+        record["category"],
+        record["est_minutes"],
+        record["actual_minutes"],
+        record["completed_at"],
+    )
+
+
+def _validate_record_row(row: Any, index: int) -> dict[str, Any]:
+    if not isinstance(row, dict):
+        raise ValueError(f"record {index} must be an object")
+
+    category = row.get("category")
+    est_minutes = row.get("est_minutes")
+    actual_minutes = row.get("actual_minutes")
+    completed_at = row.get("completed_at")
+
+    if not isinstance(category, str):
+        raise ValueError(f"record {index} category must be a string")
+    if type(est_minutes) is not int or est_minutes <= 0:
+        raise ValueError(f"record {index} est_minutes must be positive")
+    if type(actual_minutes) is not int or actual_minutes <= 0:
+        raise ValueError(f"record {index} actual_minutes must be positive")
+    if type(completed_at) not in (int, float):
+        raise ValueError(f"record {index} completed_at must be numeric")
+
+    return make_record(category, est_minutes, actual_minutes, float(completed_at))
+
+
+def merge_records(existing: list[dict], payload: str) -> tuple[list[dict], int, int]:
+    """Merge valid exported records without mutating existing browser state."""
+    try:
+        data = json.loads(payload)
+    except json.JSONDecodeError as exc:
+        raise ValueError("invalid json") from exc
+
+    if not isinstance(data, dict):
+        raise ValueError("payload must be an object")
+    records = data.get("records")
+    if not isinstance(records, list):
+        raise ValueError("records must be a list")
+
+    rows = [
+        _validate_record_row(row, index)
+        for index, row in enumerate(records, start=1)
+    ]
+
+    merged = list(existing)
+    seen = {_record_key(record) for record in merged}
+    imported = 0
+    skipped = 0
+    for row in rows:
+        key = _record_key(row)
+        if key in seen:
+            skipped += 1
+            continue
+        merged.append(row)
+        seen.add(key)
+        imported += 1
+
+    return merged, imported, skipped
+
+
+def export_payload(records: list[dict]) -> str:
+    """Return a Store.export_json-compatible payload for browser records."""
+    return json.dumps({"tasks": [], "steps": [], "records": records})
+
+
+def with_plan(data: dict, task: str, rows: list) -> dict:
+    """Return browser state with the visible plan snapshot replaced."""
+    records = _records_from_data(data)
+    return {
+        "records": list(records),
+        "plan": {"task": task, "rows": list(rows)},
+    }
+
+
+def with_records(data: dict, records: list) -> dict:
+    """Return browser state with calibration records replaced."""
+    plan = data.get("plan") if isinstance(data, dict) else None
+    return {"records": list(records), "plan": plan}
+
+
+def snapshot(data: dict, task: str, rows: list[dict]) -> dict:
+    """Return browser state with the visible plan rows saved."""
+    return with_plan(data, task, rows)
 
 
 def summary_html(rows: list[dict[str, Any]]) -> str:
@@ -217,36 +313,39 @@ def patterns_html(records: list[dict]) -> str:
     return '<div class="patterns">' + "".join(blocks) + "</div>"
 
 
-def restore_snapshot(
-    store: Store, readout: Callable[[], str]
-) -> tuple[list[dict[str, Any]], str, str, str, Any]:
-    """Return saved plan state for Gradio load, or an empty state on bad JSON."""
-    patterns = patterns_html(store.get_records())
-    saved = store.load_plan()
-    if saved is None:
-        return [], readout(), "", patterns, gr.update()
-
-    saved_task, rows_json = saved
-    try:
-        rows = json.loads(rows_json)
-        if not isinstance(rows, list):
-            raise ValueError("saved rows must be a list")
-        summary = completion_html(rows) + summary_html(rows)
-    except Exception:
-        return [], readout(), "", patterns, gr.update()
-
-    return rows, readout(), summary, patterns, gr.update(value=saved_task)
+def _records_from_data(data: dict | None) -> list[dict[str, Any]]:
+    if not isinstance(data, dict):
+        return []
+    records = data.get("records")
+    return records if isinstance(records, list) else []
 
 
 def new_plan(
-    store: Any, patterns: Callable[[], str]
+    data: dict, patterns: Callable[[list[dict[str, Any]]], str]
+) -> tuple[list[dict[str, Any]], str, str, str, Any, dict]:
+    """Clear the visible plan while keeping browser-stored records."""
+    records = _records_from_data(data)
+    updated = {"records": list(records), "plan": None}
+    return [], "", "", patterns(records), gr.update(value=""), updated
+
+
+def restore_snapshot(
+    data: dict, readout: Callable[[list[dict[str, Any]]], str]
 ) -> tuple[list[dict[str, Any]], str, str, str, Any]:
-    """Clear the visible plan and forget the saved snapshot."""
-    try:
-        store.clear_plan()
-    except Exception:
-        pass
-    return [], "", "", patterns(), gr.update(value="")
+    """Return browser plan state for Gradio load, or empty state on bad data."""
+    records = _records_from_data(data)
+    patterns = patterns_html(records)
+    plan = data.get("plan") if isinstance(data, dict) else None
+    if not isinstance(plan, dict):
+        return [], readout(records), "", patterns, gr.update()
+
+    saved_task = plan.get("task")
+    rows = plan.get("rows")
+    if not isinstance(saved_task, str) or not isinstance(rows, list):
+        return [], readout(records), "", patterns, gr.update()
+
+    summary = completion_html(rows) + summary_html(rows)
+    return rows, readout(records), summary, patterns, gr.update(value=saved_task)
 
 
 def plan_markdown(task: str, rows: list[dict]) -> str:
@@ -289,16 +388,6 @@ def splice_rows(
     return spliced if found else rows
 
 
-def parse_import(file_path: str | os.PathLike[str], store: Store) -> str:
-    """Import an Unstuck export file and return a short user-facing status."""
-    payload = Path(file_path).read_text(encoding="utf-8")
-    result = store.import_json(payload)
-    return (
-        f"Imported {result['imported']} records "
-        f"({result['skipped']} duplicates skipped)"
-    )
-
-
 def build_ui(service: Unstuck) -> gr.Blocks:
     """Build the Gradio UI around an injected Unstuck service."""
 
@@ -318,8 +407,9 @@ def build_ui(service: Unstuck) -> gr.Blocks:
             for row in view.rows
         ]
 
-    def recalibrated(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        records = service.store.get_records()
+    def recalibrated(
+        rows: list[dict[str, Any]], records: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         return [
             row
             if row["logged"] or row.get("skipped")
@@ -332,8 +422,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
             for row in rows
         ]
 
-    def readout() -> str:
-        records = service.store.get_records()
+    def readout(records: list[dict[str, Any]]) -> str:
         if not records:
             return ""
         lines = []
@@ -352,69 +441,109 @@ def build_ui(service: Unstuck) -> gr.Blocks:
             )
         return '<div class="readout">' + "<br>".join(lines) + "</div>"
 
-    def patterns() -> str:
-        return patterns_html(service.store.get_records())
+    def patterns(records: list[dict[str, Any]]) -> str:
+        return patterns_html(records)
 
-    def persist(task: str, rows: list[dict[str, Any]]) -> None:
-        try:
-            snapshot(service.store, task, rows)
-        except Exception:
-            pass
+    def persist(data: dict, task: str, rows: list[dict[str, Any]]) -> dict:
+        return snapshot(data, task, rows)
 
-    def restore() -> tuple[list[dict[str, Any]], str, str, str, Any]:
-        return restore_snapshot(service.store, readout)
+    def restore(data: dict) -> tuple[list[dict[str, Any]], str, str, str, Any, dict]:
+        rows, readout_html, summary, patterns_html_, task_update = restore_snapshot(
+            data, readout
+        )
+        return rows, readout_html, summary, patterns_html_, task_update, data
 
-    def break_down(task: str) -> tuple[list[dict[str, Any]], str, str, str]:
+    def break_down(
+        task: str, data: dict
+    ) -> tuple[list[dict[str, Any]], str, str, str, dict]:
         clean_task = task.strip()
+        records = _records_from_data(data)
         if not clean_task:
-            persist(clean_task, [])
+            updated = persist(data, clean_task, [])
             return (
                 [],
                 '<div class="explainer">Enter a task to break down.</div>',
                 "",
-                patterns(),
+                patterns(records),
+                updated,
             )
         try:
             rows = view_rows(service.breakdown(clean_task))
         except Exception:
             gr.Warning("The model backend is busy. Try again in a minute.")
-            persist(clean_task, [])
+            updated = persist(data, clean_task, [])
             return (
                 [],
                 '<div class="explainer">The model backend is busy or out of GPU quota. '
                 "Try again in a minute. Logging in to Hugging Face raises the free "
                 "ZeroGPU quota.</div>",
                 "",
-                patterns(),
+                patterns(records),
+                updated,
             )
-        persist(clean_task, rows)
-        return rows, readout(), completion_html(rows) + summary_html(rows), patterns()
+        updated = persist(data, clean_task, rows)
+        return (
+            rows,
+            readout(records),
+            completion_html(rows) + summary_html(rows),
+            patterns(records),
+            updated,
+        )
 
     def log_step(
         step_id: int,
     ) -> Any:
         def handler(
-            minutes: float | None, task: str, rows: list[dict[str, Any]]
-        ) -> tuple[list[dict[str, Any]], str, str, str]:
+            minutes: float | None,
+            task: str,
+            rows: list[dict[str, Any]],
+            data: dict,
+        ) -> tuple[list[dict[str, Any]], str, str, str, dict]:
+            records = _records_from_data(data)
             row = next((row for row in rows if row["step_id"] == step_id), None)
             if row is None:
-                persist(task, rows)
-                return rows, readout(), completion_html(rows) + summary_html(rows), patterns()
+                updated = persist(data, task, rows)
+                return (
+                    rows,
+                    readout(records),
+                    completion_html(rows) + summary_html(rows),
+                    patterns(records),
+                    updated,
+                )
             actual = finish_minutes(minutes, row.get("started_at"), time.time())
             if actual is None:
                 gr.Warning("Press Start first or enter minutes.")
-                persist(task, rows)
-                return rows, readout(), completion_html(rows) + summary_html(rows), patterns()
-            service.log_actual(step_id, actual)
+                updated = persist(data, task, rows)
+                return (
+                    rows,
+                    readout(records),
+                    completion_html(rows) + summary_html(rows),
+                    patterns(records),
+                    updated,
+                )
+            records = records + [
+                make_record(
+                    str(row["category"]),
+                    int(row["raw_minutes"]),
+                    actual,
+                    time.time(),
+                )
+            ]
             rows = [
                 {**row, "logged": True, "actual_minutes": actual, "started_at": None}
                 if row["step_id"] == step_id
                 else row
                 for row in rows
             ]
-            rows = recalibrated(rows)
-            persist(task, rows)
-            return rows, readout(), completion_html(rows) + summary_html(rows), patterns()
+            rows = recalibrated(rows, records)
+            updated = persist(with_records(data, records), task, rows)
+            return (
+                rows,
+                readout(records),
+                completion_html(rows) + summary_html(rows),
+                patterns(records),
+                updated,
+            )
 
         return handler
 
@@ -422,16 +551,23 @@ def build_ui(service: Unstuck) -> gr.Blocks:
         step_id: int,
     ) -> Any:
         def handler(
-            task: str, rows: list[dict[str, Any]]
-        ) -> tuple[list[dict[str, Any]], str, str, str]:
+            task: str, rows: list[dict[str, Any]], data: dict
+        ) -> tuple[list[dict[str, Any]], str, str, str, dict]:
+            records = _records_from_data(data)
             rows = [
                 {**row, "started_at": time.time()}
                 if row["step_id"] == step_id
                 else row
                 for row in rows
             ]
-            persist(task, rows)
-            return rows, readout(), completion_html(rows) + summary_html(rows), patterns()
+            updated = persist(data, task, rows)
+            return (
+                rows,
+                readout(records),
+                completion_html(rows) + summary_html(rows),
+                patterns(records),
+                updated,
+            )
 
         return handler
 
@@ -439,16 +575,23 @@ def build_ui(service: Unstuck) -> gr.Blocks:
         step_id: int,
     ) -> Any:
         def handler(
-            task: str, rows: list[dict[str, Any]]
-        ) -> tuple[list[dict[str, Any]], str, str, str]:
+            task: str, rows: list[dict[str, Any]], data: dict
+        ) -> tuple[list[dict[str, Any]], str, str, str, dict]:
+            records = _records_from_data(data)
             rows = [
                 {**row, "skipped": True, "started_at": None}
                 if row["step_id"] == step_id
                 else row
                 for row in rows
             ]
-            persist(task, rows)
-            return rows, readout(), completion_html(rows) + summary_html(rows), patterns()
+            updated = persist(data, task, rows)
+            return (
+                rows,
+                readout(records),
+                completion_html(rows) + summary_html(rows),
+                patterns(records),
+                updated,
+            )
 
         return handler
 
@@ -456,20 +599,33 @@ def build_ui(service: Unstuck) -> gr.Blocks:
         step_id: int,
     ) -> Any:
         def handler(
-            task: str, rows: list[dict[str, Any]]
-        ) -> tuple[list[dict[str, Any]], str, str, str]:
+            task: str, rows: list[dict[str, Any]], data: dict
+        ) -> tuple[list[dict[str, Any]], str, str, str, dict]:
+            records = _records_from_data(data)
             if len(rows) >= 16:
                 gr.Warning("That's plenty of steps — try starting the first tiny one")
-                persist(task, rows)
-                return rows, readout(), completion_html(rows) + summary_html(rows), patterns()
+                updated = persist(data, task, rows)
+                return (
+                    rows,
+                    readout(records),
+                    completion_html(rows) + summary_html(rows),
+                    patterns(records),
+                    updated,
+                )
 
             step_text = next(
                 (str(row["text"]) for row in rows if row["step_id"] == step_id),
                 None,
             )
             if step_text is None:
-                persist(task, rows)
-                return rows, readout(), completion_html(rows) + summary_html(rows), patterns()
+                updated = persist(data, task, rows)
+                return (
+                    rows,
+                    readout(records),
+                    completion_html(rows) + summary_html(rows),
+                    patterns(records),
+                    updated,
+                )
 
             try:
                 new_rows = view_rows(service.breakdown(step_text))
@@ -478,16 +634,29 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                     "The model backend is busy or out of GPU quota. "
                     "Try again in a minute."
                 )
-                persist(task, rows)
-                return rows, readout(), completion_html(rows) + summary_html(rows), patterns()
+                updated = persist(data, task, rows)
+                return (
+                    rows,
+                    readout(records),
+                    completion_html(rows) + summary_html(rows),
+                    patterns(records),
+                    updated,
+                )
 
             spliced = splice_rows(rows, step_id, new_rows)
-            persist(task, spliced)
-            return spliced, readout(), completion_html(spliced) + summary_html(spliced), patterns()
+            updated = persist(data, task, spliced)
+            return (
+                spliced,
+                readout(records),
+                completion_html(spliced) + summary_html(spliced),
+                patterns(records),
+                updated,
+            )
 
         return handler
 
-    def export_data() -> str:
+    def export_data(data: dict) -> tuple[str, dict]:
+        records = _records_from_data(data)
         handle = tempfile.NamedTemporaryFile(
             mode="w",
             encoding="utf-8",
@@ -496,28 +665,38 @@ def build_ui(service: Unstuck) -> gr.Blocks:
             delete=False,
         )
         with handle:
-            handle.write(service.store.export_json())
-        return handle.name
+            handle.write(export_payload(records))
+        return handle.name, data
 
     def import_data(
-        file: Any, task: str, rows: list[dict[str, Any]]
-    ) -> tuple[list[dict[str, Any]], str, str, str]:
+        file: Any, task: str, rows: list[dict[str, Any]], data: dict
+    ) -> tuple[list[dict[str, Any]], str, str, str, dict]:
         file_path = getattr(file, "name", file)
+        records = _records_from_data(data)
         try:
-            status = parse_import(file_path, service.store)
+            payload = Path(file_path).read_text(encoding="utf-8")
+            records, imported, skipped = merge_records(records, payload)
+            status = f"Imported {imported} records ({skipped} duplicates skipped)"
         except (OSError, TypeError, ValueError):
             gr.Warning("That file doesn't look like an Unstuck export.")
-            persist(task, rows)
-            return rows, readout(), completion_html(rows) + summary_html(rows), patterns()
+            updated = persist(data, task, rows)
+            return (
+                rows,
+                readout(records),
+                completion_html(rows) + summary_html(rows),
+                patterns(records),
+                updated,
+            )
 
-        updated_rows = recalibrated(rows)
+        updated_rows = recalibrated(rows, records)
         status_html = f'<div class="summary">{status}</div>'
-        persist(task, updated_rows)
+        updated = persist(with_records(data, records), task, updated_rows)
         return (
             updated_rows,
-            readout() + status_html,
+            readout(records) + status_html,
             completion_html(updated_rows) + summary_html(updated_rows),
-            patterns(),
+            patterns(records),
+            updated,
         )
 
     def copy_checklist(task: str, rows: list[dict[str, Any]]) -> Any:
@@ -531,6 +710,9 @@ def build_ui(service: Unstuck) -> gr.Blocks:
             "<em>you</em> actually take.</p></div>"
         )
         rows_state = gr.State([])
+        user_data = gr.BrowserState(
+            {"records": [], "plan": None}, storage_key="unstuck-v1"
+        )
 
         task = gr.Textbox(
             label="Task",
@@ -618,12 +800,13 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                         )
                         start.click(
                             start_step(int(row["step_id"])),
-                            inputs=[task, rows_state],
+                            inputs=[task, rows_state, user_data],
                             outputs=[
                                 rows_state,
                                 readout_output,
                                 summary_output,
                                 patterns_output,
+                                user_data,
                             ],
                             api_visibility="private",
                         )
@@ -642,12 +825,13 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                         )
                         done.click(
                             log_step(int(row["step_id"])),
-                            inputs=[minutes, task, rows_state],
+                            inputs=[minutes, task, rows_state, user_data],
                             outputs=[
                                 rows_state,
                                 readout_output,
                                 summary_output,
                                 patterns_output,
+                                user_data,
                             ],
                             api_visibility="private",
                         )
@@ -660,12 +844,13 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                         )
                         still_stuck.click(
                             break_down_step(int(row["step_id"])),
-                            inputs=[task, rows_state],
+                            inputs=[task, rows_state, user_data],
                             outputs=[
                                 rows_state,
                                 readout_output,
                                 summary_output,
                                 patterns_output,
+                                user_data,
                             ],
                             api_visibility="private",
                         )
@@ -678,12 +863,13 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                         )
                         skip.click(
                             skip_step(int(row["step_id"])),
-                            inputs=[task, rows_state],
+                            inputs=[task, rows_state, user_data],
                             outputs=[
                                 rows_state,
                                 readout_output,
                                 summary_output,
                                 patterns_output,
+                                user_data,
                             ],
                             api_visibility="private",
                         )
@@ -708,29 +894,49 @@ def build_ui(service: Unstuck) -> gr.Blocks:
 
         break_button.click(
             break_down,
-            inputs=task,
-            outputs=[rows_state, readout_output, summary_output, patterns_output],
+            inputs=[task, user_data],
+            outputs=[
+                rows_state,
+                readout_output,
+                summary_output,
+                patterns_output,
+                user_data,
+            ],
         )
         new_plan_button.click(
-            lambda: new_plan(service.store, patterns),
+            lambda data: new_plan(data, patterns),
+            inputs=user_data,
             outputs=[
                 rows_state,
                 readout_output,
                 summary_output,
                 patterns_output,
                 task,
+                user_data,
             ],
         )
         task.submit(
             break_down,
-            inputs=task,
-            outputs=[rows_state, readout_output, summary_output, patterns_output],
+            inputs=[task, user_data],
+            outputs=[
+                rows_state,
+                readout_output,
+                summary_output,
+                patterns_output,
+                user_data,
+            ],
         )
-        export_button.click(export_data, outputs=export_file)
+        export_button.click(export_data, inputs=user_data, outputs=[export_file, user_data])
         import_button.upload(
             import_data,
-            inputs=[import_button, task, rows_state],
-            outputs=[rows_state, readout_output, summary_output, patterns_output],
+            inputs=[import_button, task, rows_state, user_data],
+            outputs=[
+                rows_state,
+                readout_output,
+                summary_output,
+                patterns_output,
+                user_data,
+            ],
         )
         copy_button.click(
             copy_checklist,
@@ -739,7 +945,15 @@ def build_ui(service: Unstuck) -> gr.Blocks:
         )
         ui.load(
             restore,
-            outputs=[rows_state, readout_output, summary_output, patterns_output, task],
+            inputs=user_data,
+            outputs=[
+                rows_state,
+                readout_output,
+                summary_output,
+                patterns_output,
+                task,
+                user_data,
+            ],
         )
 
     return ui
