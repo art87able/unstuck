@@ -1,0 +1,28 @@
+tests/test_store.py
+  s_565d4ac47e15db::t_7c066e7e505932 118-141
+src/unstuck/store.py
+  s_565d4ac47e15db::t_1dfee87226000a 7,93-119,206-211
+app.py
+  s_565d4ac47e15db::t_e911f91e4478c6 3
+  s_565d4ac47e15db::t_19f4bc792f12d4 8,82-86,106-123
+  s_565d4ac47e15db::t_ff2ad55e92bcb2 431,450,463,499,507-509
+  s_565d4ac47e15db::t_ccd51463962df1 226-234,238,244,252,259,263,268,278,287,295,304,308,316,326,330,348,355,360
+tests/test_app_smoke.py
+  s_565d4ac47e15db::t_7e14f192aa389c 191-253
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "10ce2d46640cdd91bf663ac450ac2e13b99ecd9b",
+  "prompts": {},
+  "sessions": {
+    "s_565d4ac47e15db": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eb600-034d-7453-8819-165857f9cc0d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Artur Arapov <art87able@gmail.com>"
+    }
+  }
+}
