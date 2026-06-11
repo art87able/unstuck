@@ -1,0 +1,29 @@
+src/unstuck/schema.py
+  s_7e4fa86e567c5a::t_3419f4f744573c 19-21
+docs/field-notes.md
+  s_7e4fa86e567c5a::t_d9ac9544dcc0ea 52-60
+src/unstuck/backend.py
+  s_7e4fa86e567c5a::t_c4decbe269a63d 30-33,37,40-43,45,56-57
+src/unstuck/prompts.py
+  s_7e4fa86e567c5a::t_3abf98c5fe90bd 39-59
+  s_7e4fa86e567c5a::t_ef25db3560610c 9-16,19-20
+  s_7e4fa86e567c5a::t_d37cf43b229c56 85-90,100-101,104,108-109
+src/unstuck/model_adapter.py
+  s_7e4fa86e567c5a::t_fd71e8b94879fe 12-20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "490b521bb998d9400673e150a1cb62a4cc5e92a2",
+  "prompts": {},
+  "sessions": {
+    "s_7e4fa86e567c5a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a02f791d-1b71-4a66-8d61-fd5754bf55d3",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Artur Arapov <art87able@gmail.com>"
+    }
+  }
+}
