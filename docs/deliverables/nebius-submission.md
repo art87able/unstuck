@@ -8,11 +8,16 @@
 ## What it is
 
 **Unstuck** is an ADHD task assistant. Paste one overwhelming task; a small instruct model
-breaks it into tiny, timed, categorised steps — each capped at 25 minutes, the first one always
-a ≤5-minute starter action (the task-initiation hook). The differentiator has **no AI in it**:
-a deterministic calibration layer logs how long steps *actually* took and computes a
-per-category bias multiplier — `median(actual / estimated)` — so the plan is honest about your
-time-blindness. Your data is yours: export it as JSON, re-import it anywhere.
+breaks it into tiny, timed, categorised steps (chunky/regular/tiny granularity) — each capped
+at 25 minutes, the first one always a small starter action (the task-initiation hook). Only the
+next step is "live" (progressive reveal); a built-in timer measures each step (Start → Done) so
+the user never self-tracks; any step can be recursively re-broken-down in place; skipped steps
+are excluded from the data. The differentiator has **no AI in it**: a deterministic calibration
+layer logs how long steps *actually* took and computes a per-category bias multiplier —
+`median(actual / estimated)` — so the plan is honest about your time-blindness, with the
+history visible in a "Your patterns" panel. Privacy is structural: plans and calibration
+records live in the **browser's localStorage**, never server-side; export/import gives the full
+data round-trip.
 
 ## The serverless part: one seam, three backends
 
@@ -58,7 +63,7 @@ UNSTUCK_BACKEND=nebius NEBIUS_API_KEY=… python app.py
 
 1. **The seam pattern.** Most LLM apps hard-wire their provider. The env-selected
    `generate(prompt) -> str` boundary means the choice of serving stack is a deploy-time
-   decision, not an architecture decision — and the entire logic suite (42 tests) runs on canned
+   decision, not an architecture decision — and the entire logic suite (99 tests) runs on canned
    strings with zero network and zero GPU.
 2. **Schema gate + one repair retry.** Small serverless models return *almost*-right JSON; the
    app validates every response (`0 < est_minutes ≤ 25`, category enum) and spends at most one
@@ -71,7 +76,7 @@ UNSTUCK_BACKEND=nebius NEBIUS_API_KEY=… python app.py
 
 ## Built small, in the open
 
-The app was written by the OpenAI Codex CLI driven and reviewed by Claude Code — 14 scoped
+The app was written by the OpenAI Codex CLI driven and reviewed by Claude Code — 24 scoped
 TDD tasks, each a written spec with a failing-test-first contract, every commit independently
 reviewed. The process itself is documented in
 [`docs/field-notes.md`](../field-notes.md) and the
