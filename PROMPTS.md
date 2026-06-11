@@ -894,3 +894,49 @@ Touch ONLY: app.py and tests/test_app_smoke.py. TDD: failing tests first. Do NOT
    "feat(ui): per-user data via BrowserState — plans and calibration stay in the browser"
    staging only app.py tests/test_app_smoke.py.
 ```
+
+## Task 24 — Step-size control (granularity through the whole seam)
+
+> Added 2026-06-11: Goblin Tools has a "spiciness" granularity dial; we have nothing global.
+> Thread a granularity setting from the UI through service → adapter → prompt. "Still stuck?"
+> re-breakdowns always use "tiny" (that's what being stuck means).
+
+```
+Touch ONLY: src/unstuck/prompts.py, src/unstuck/model_adapter.py, src/unstuck/service.py,
+app.py, tests/test_prompts.py, tests/test_model_adapter.py, tests/test_service.py,
+tests/test_app_smoke.py. TDD: failing tests first. Do NOT run git.
+
+1. prompts.py: breakdown_prompt(task, granularity="regular") and
+   repair_prompt(task, bad_output, error, granularity="regular").
+   GRANULARITY_RULES = {
+     "chunky": "Produce 3-5 bigger steps. Estimates may be up to 25 minutes.",
+     "regular": "Produce 4-8 tiny steps.",
+     "tiny": "Produce 5-10 very tiny steps. No estimate may exceed 10 minutes. The first step must take 2 minutes or less.",
+   }
+   Unknown granularity -> ValueError. The rule line is appended to the system block (replace
+   the current hardcoded "4-8 tiny ordered" sentence with a granularity-neutral version:
+   "You break ONE overwhelming task into tiny ordered ADHD-friendly steps." and inject the
+   rule as its own line right after it). Keep everything else (25-min hard max, categories,
+   starter-step rule, JSON schema line) unchanged.
+   Tests: each granularity's rule text appears in its prompt; default regular; ValueError on
+   unknown; repair_prompt carries the rule too.
+2. model_adapter.py: ModelAdapter.breakdown(task, granularity="regular") passes granularity
+   to both prompt builders. Test: fake generate captures the prompt; tiny rule present;
+   repair path keeps granularity.
+3. service.py: Unstuck.breakdown(task, granularity="regular") passes through. Test: canned
+   generate asserting the rule text reached the prompt.
+4. app.py:
+   - gr.Radio(choices=["chunky", "regular", "tiny"], value="regular", label="Step size",
+     info="How small should the pieces be?") rendered between the task box and the buttons.
+   - break_down handler gains the granularity input (wire the radio into break_button.click
+     and task.submit inputs) and calls service.breakdown(clean_task, granularity).
+   - break_down_step ("Still stuck?") always calls service.breakdown(step_text, "tiny").
+   - Smoke test: with a fake generate that records prompts, drive /break_down via
+     gradio_client with granularity "tiny" and assert the recorded prompt contains the tiny
+     rule (follow the existing test_break_down_calibrates_from_browser_records launch
+     pattern, different port).
+5. Run: python -m pytest -q — FULL suite green (89 baseline).
+6. (Commit handled by reviewer.) Intended message:
+   "feat(prompts,ui): step-size control — chunky/regular/tiny granularity end to end"
+   staging only the eight named files.
+```
