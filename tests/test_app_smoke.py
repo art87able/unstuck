@@ -11,6 +11,37 @@ from unstuck.service import Unstuck
 from unstuck.store import Store
 
 
+def test_next_step_id_picks_first_unlogged_row() -> None:
+    rows = [
+        {"step_id": 1, "logged": False},
+        {"step_id": 2, "logged": False},
+    ]
+
+    assert app.next_step_id(rows) == 1
+
+
+def test_next_step_id_all_logged_returns_none() -> None:
+    rows = [
+        {"step_id": 1, "logged": True},
+        {"step_id": 2, "logged": True},
+    ]
+
+    assert app.next_step_id(rows) is None
+
+
+def test_next_step_id_empty_rows_returns_none() -> None:
+    assert app.next_step_id([]) is None
+
+
+def test_next_step_id_skips_logged_first_row() -> None:
+    rows = [
+        {"step_id": 1, "logged": True},
+        {"step_id": 2, "logged": False},
+    ]
+
+    assert app.next_step_id(rows) == 2
+
+
 def test_splice_rows_replaces_middle_row_with_new_rows() -> None:
     rows = [
         {"step_id": 1, "text": "before"},

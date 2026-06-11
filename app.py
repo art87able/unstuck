@@ -47,6 +47,9 @@ CSS = """
 .step-card { display: flex; align-items: center; gap: 14px; background: #fff;
   border: 1px solid #eee9e2; border-radius: 12px; padding: 12px 16px;
   box-shadow: 0 1px 2px rgba(40, 35, 60, 0.05); }
+.step-next { border-color:#4f46e5; box-shadow:0 2px 8px rgba(79,70,229,0.18); }
+.step-next .step-num { background:#4f46e5; color:#fff; }
+.step-later { opacity:0.55; }
 .step-num { flex: none; width: 30px; height: 30px; border-radius: 50%;
   background: #eef2ff; color: #4f46e5; font-weight: 600; display: flex;
   align-items: center; justify-content: center; font-size: 0.9rem; }
@@ -85,6 +88,14 @@ def finish_minutes(
         return int(round(manual))
     if started_at is not None:
         return max(1, int(round((now - started_at) / 60.0)))
+    return None
+
+
+def next_step_id(rows: list[dict]) -> int | None:
+    """Return the first unlogged step id in visible row order."""
+    for row in rows:
+        if not row["logged"]:
+            return int(row["step_id"])
     return None
 
 
@@ -472,11 +483,19 @@ def build_ui(service: Unstuck) -> gr.Blocks:
 
             if not rows:
                 return
+            spotlight = next_step_id(rows)
             for index, row in enumerate(rows, start=1):
                 text = html_lib.escape(str(row["text"]))
+                is_spotlight = row["step_id"] == spotlight
+                if row["logged"]:
+                    card_class = "step-card"
+                elif is_spotlight:
+                    card_class = "step-card step-next"
+                else:
+                    card_class = "step-card step-later"
                 with gr.Row(elem_classes="step-row"):
                     gr.HTML(
-                        '<div class="step-card">'
+                        f'<div class="{card_class}">'
                         f'<div class="step-num">{"✓" if row["logged"] else index}</div>'
                         f'<div class="step-text">{text}</div>'
                         f'<div class="chip chip-raw">AI: {row["raw_minutes"]} min</div>'
@@ -494,7 +513,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                         + "</div>",
                         padding=False,
                     )
-                    if not row["logged"]:
+                    if is_spotlight:
                         start = gr.Button(
                             "Restart" if row.get("started_at") is not None else "Start",
                             size="sm",
