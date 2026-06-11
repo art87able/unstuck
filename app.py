@@ -130,6 +130,54 @@ def make_record(
     }
 
 
+def undo_row(rows: list[dict], step_id: int) -> list[dict]:
+    """Return rows with one resolved step restored to unresolved state."""
+    undone = []
+    for row in rows:
+        if row["step_id"] != step_id:
+            undone.append(row)
+            continue
+
+        updated = {
+            **row,
+            "logged": False,
+            "skipped": False,
+            "actual_minutes": None,
+            "started_at": None,
+        }
+        updated.pop("record_at", None)
+        undone.append(updated)
+    return undone
+
+
+def remove_record(
+    records: list[dict],
+    category: str,
+    est_minutes: int,
+    actual_minutes: int,
+    completed_at: float | None,
+) -> list[dict]:
+    """Return records with one matching calibration row removed."""
+    remove_index = None
+    for index, record in enumerate(records):
+        fields_match = (
+            record.get("category") == category
+            and record.get("est_minutes") == est_minutes
+            and record.get("actual_minutes") == actual_minutes
+        )
+        if not fields_match:
+            continue
+        if completed_at is None:
+            remove_index = index
+        elif record.get("completed_at") == completed_at:
+            remove_index = index
+            break
+
+    if remove_index is None:
+        return list(records)
+    return [record for index, record in enumerate(records) if index != remove_index]
+
+
 def _record_key(record: dict[str, Any]) -> tuple[Any, Any, Any, Any]:
     return (
         record["category"],
@@ -526,7 +574,8 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                     patterns(records),
                     updated,
                 )
-            actual = finish_minutes(minutes, row.get("started_at"), time.time())
+            now = time.time()
+            actual = finish_minutes(minutes, row.get("started_at"), now)
             if actual is None:
                 gr.Warning("Press Start first or enter minutes.")
                 updated = persist(data, task, rows)
@@ -542,16 +591,64 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                     str(row["category"]),
                     int(row["raw_minutes"]),
                     actual,
-                    time.time(),
+                    now,
                 )
             ]
             rows = [
-                {**row, "logged": True, "actual_minutes": actual, "started_at": None}
+                {
+                    **row,
+                    "logged": True,
+                    "actual_minutes": actual,
+                    "started_at": None,
+                    "record_at": now,
+                }
                 if row["step_id"] == step_id
                 else row
                 for row in rows
             ]
             rows = recalibrated(rows, records)
+            updated = persist(with_records(data, records), task, rows)
+            return (
+                rows,
+                readout(records),
+                completion_html(rows) + summary_html(rows),
+                patterns(records),
+                updated,
+            )
+
+        return handler
+
+    def undo_step(
+        step_id: int,
+    ) -> Any:
+        def handler(
+            task: str, rows: list[dict[str, Any]], data: dict
+        ) -> tuple[list[dict[str, Any]], str, str, str, dict]:
+            records = _records_from_data(data)
+            row = next((row for row in rows if row["step_id"] == step_id), None)
+            if row is None:
+                updated = persist(with_records(data, records), task, rows)
+                return (
+                    rows,
+                    readout(records),
+                    completion_html(rows) + summary_html(rows),
+                    patterns(records),
+                    updated,
+                )
+
+            if row.get("skipped"):
+                rows = undo_row(rows, step_id)
+            elif row["logged"]:
+                records = remove_record(
+                    records,
+                    str(row["category"]),
+                    int(row["raw_minutes"]),
+                    int(row["actual_minutes"]),
+                    row.get("record_at"),
+                )
+                rows = undo_row(rows, step_id)
+                rows = recalibrated(rows, records)
+
             updated = persist(with_records(data, records), task, rows)
             return (
                 rows,
@@ -814,7 +911,27 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                         + "</div>",
                         padding=False,
                     )
-                    if is_spotlight:
+                    if row["logged"] or row.get("skipped"):
+                        undo = gr.Button(
+                            "Undo",
+                            size="sm",
+                            scale=0,
+                            min_width=70,
+                            variant="secondary",
+                        )
+                        undo.click(
+                            undo_step(int(row["step_id"])),
+                            inputs=[task, rows_state, user_data],
+                            outputs=[
+                                rows_state,
+                                readout_output,
+                                summary_output,
+                                patterns_output,
+                                user_data,
+                            ],
+                            api_visibility="private",
+                        )
+                    elif is_spotlight:
                         start = gr.Button(
                             "Restart" if row.get("started_at") is not None else "Start",
                             size="sm",

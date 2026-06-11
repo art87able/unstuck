@@ -89,6 +89,111 @@ def test_splice_rows_unknown_step_id_returns_rows_unchanged() -> None:
     assert spliced == rows
 
 
+def test_undo_row_resets_resolved_row_and_removes_record_timestamp() -> None:
+    other = {
+        "step_id": 1,
+        "logged": False,
+        "skipped": False,
+        "actual_minutes": None,
+        "started_at": None,
+    }
+    rows = [
+        other,
+        {
+            "step_id": 2,
+            "logged": True,
+            "skipped": False,
+            "actual_minutes": 12,
+            "started_at": None,
+            "record_at": 456.0,
+        },
+    ]
+
+    undone = app.undo_row(rows, 2)
+
+    assert undone == [
+        other,
+        {
+            "step_id": 2,
+            "logged": False,
+            "skipped": False,
+            "actual_minutes": None,
+            "started_at": None,
+        },
+    ]
+    assert rows[1]["logged"] is True
+    assert rows[1]["record_at"] == 456.0
+
+
+def test_undo_row_resets_skipped_row() -> None:
+    rows = [
+        {
+            "step_id": 1,
+            "logged": False,
+            "skipped": True,
+            "actual_minutes": None,
+            "started_at": 123.0,
+        },
+    ]
+
+    assert app.undo_row(rows, 1) == [
+        {
+            "step_id": 1,
+            "logged": False,
+            "skipped": False,
+            "actual_minutes": None,
+            "started_at": None,
+        }
+    ]
+
+
+def test_undo_row_unknown_step_id_returns_rows_unchanged() -> None:
+    rows = [{"step_id": 1, "logged": True, "record_at": 456.0}]
+
+    undone = app.undo_row(rows, 99)
+
+    assert undone == rows
+    assert undone is not rows
+
+
+def test_remove_record_removes_one_exact_timestamp_match() -> None:
+    records = [
+        app.make_record("admin", 5, 8, 100.0),
+        app.make_record("admin", 5, 8, 200.0),
+        app.make_record("creative", 5, 8, 200.0),
+    ]
+
+    updated = app.remove_record(records, "admin", 5, 8, 200.0)
+
+    assert updated == [
+        app.make_record("admin", 5, 8, 100.0),
+        app.make_record("creative", 5, 8, 200.0),
+    ]
+    assert records[1] == app.make_record("admin", 5, 8, 200.0)
+
+
+def test_remove_record_without_timestamp_removes_last_field_match() -> None:
+    records = [
+        app.make_record("admin", 5, 8, 100.0),
+        app.make_record("admin", 5, 9, 150.0),
+        app.make_record("admin", 5, 8, 200.0),
+    ]
+
+    assert app.remove_record(records, "admin", 5, 8, None) == [
+        app.make_record("admin", 5, 8, 100.0),
+        app.make_record("admin", 5, 9, 150.0),
+    ]
+
+
+def test_remove_record_no_match_returns_unchanged_copy() -> None:
+    records = [app.make_record("admin", 5, 8, 100.0)]
+
+    updated = app.remove_record(records, "admin", 5, 9, 100.0)
+
+    assert updated == records
+    assert updated is not records
+
+
 def test_build_ui_accepts_injected_service() -> None:
     svc = Unstuck(
         generate=lambda p: '{"steps":[{"text":"x","category":"admin","est_minutes":3}]}',
