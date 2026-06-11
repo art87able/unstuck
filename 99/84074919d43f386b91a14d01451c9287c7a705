@@ -1,0 +1,25 @@
+tests/test_app_smoke.py
+  s_c4ceae427a6f03::t_68b017bda091ca 103-132,148-206
+  s_c4ceae427a6f03::t_48c6be03c17820 133-147
+  s_c4ceae427a6f03::t_985e6bf601c8f9 336,343,351,358
+app.py
+  s_c4ceae427a6f03::t_653c7337968ffb 466-467,508-513,532-537,550-555,580,585,591,600
+  s_c4ceae427a6f03::t_84ece08ca077f7 8,67-74,115-164,167,169,172,181,183
+  s_c4ceae427a6f03::t_7a2c5d64e3c3a8 286-288,295,298,302-307,319,322,329,333,338,348,357,365,374,378,386,396,400,418,425,430-435
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "9984074919d43f386b91a14d01451c9287c7a705",
+  "prompts": {},
+  "sessions": {
+    "s_c4ceae427a6f03": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eb60f-989f-7c20-aab0-397bc1e3aca1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Artur Arapov <art87able@gmail.com>"
+    }
+  }
+}
