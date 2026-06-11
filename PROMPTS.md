@@ -837,3 +837,60 @@ Touch ONLY: app.py and tests/test_app_smoke.py. TDD: failing tests first. Do NOT
    "feat(ui): completion banner — honest stats when the plan is done"
    staging only app.py tests/test_app_smoke.py.
 ```
+
+## Task 23 — Per-user data via gr.BrowserState (the multi-user fix)
+
+> Added 2026-06-11: the hosted Space shares one server SQLite across ALL visitors — plans and
+> calibration leak between users. Move user data (records + plan snapshot) into
+> gr.BrowserState (browser localStorage). Server store stays for task/step bookkeeping only.
+> This is also the privacy story: calibration history lives in the user's browser.
+
+```
+Touch ONLY: app.py and tests/test_app_smoke.py. TDD: failing tests first. Do NOT run git.
+
+1. Module-level pure helpers in app.py (all tested with plain dict/list fixtures):
+   - def make_record(category: str, est_minutes: int, actual_minutes: int, now: float) -> dict
+     Returns {"category", "est_minutes", "actual_minutes", "completed_at": now}.
+   - def merge_records(existing: list[dict], payload: str) -> tuple[list[dict], int, int]
+     Parses an export payload (json with a "records" key, same shape store.export_json
+     produces), validates every record row (category str, est_minutes int>0,
+     actual_minutes int>0) raising ValueError on any violation (never partially merge),
+     skips rows already present in existing by (category, est_minutes, actual_minutes,
+     completed_at) equality, returns (merged_list, imported_count, skipped_count).
+   - def export_payload(records: list[dict]) -> str
+     json.dumps({"tasks": [], "steps": [], "records": records}) — same top-level shape as
+     store.export_json so old exports import cleanly and vice versa.
+   Tests: round-trip export_payload -> merge_records into empty = same records; re-merge ->
+   all skipped; bad payloads raise ValueError.
+2. Browser state: in build_ui add
+     user_data = gr.BrowserState({"records": [], "plan": None})
+   (storage_key="unstuck-v1" if the constructor accepts it; otherwise default).
+   Rules for ALL handlers: user_data joins inputs AND outputs whenever records or plan are
+   read or written. The dict is treated immutably (build a new dict, never mutate in place).
+3. Records source of truth = user_data["records"]:
+   - readout(), patterns(), recalibrated() lose their store reads and take records as a
+     parameter (records passed down from the handler's user_data input).
+   - log_step: on success, records = records + [make_record(row["category"],
+     row["raw_minutes"], actual, time.time())]; do NOT call service.log_actual any more.
+   - import_data: replace store.import_json with merge_records on user_data["records"];
+     status string unchanged ("Imported N records (M duplicates skipped)"). parse_import
+     may be deleted if nothing else uses it (remove its test too).
+   - export_data: write export_payload(records) to the temp file instead of
+     store.export_json().
+4. Plan snapshot source of truth = user_data["plan"] = {"task": str, "rows": [...]} | None:
+   - persist()/snapshot() and restore_snapshot() stop touching store.save_plan/load_plan;
+     snapshot becomes: new user_data with plan set (pure dict work — keep a pure helper
+     def with_plan(data: dict, task: str, rows: list) -> dict and
+     def with_records(data: dict, records: list) -> dict for the handlers to compose).
+   - restore on ui.load reads user_data["plan"]; malformed/missing -> empty board.
+   - new_plan clears user_data["plan"] (records untouched).
+5. The Store class and its tests stay untouched (still used by service.breakdown for
+   task/step ids and by local scripts). app.py simply no longer reads/writes records or
+   plan_snapshot from it.
+6. Update existing smoke tests that called the store-backed paths; keep coverage equivalent.
+7. Run: python -m pytest -q — FULL suite green (77 baseline; net count may shift slightly
+   with replaced tests — state the final number).
+8. (Commit handled by reviewer.) Intended message:
+   "feat(ui): per-user data via BrowserState — plans and calibration stay in the browser"
+   staging only app.py tests/test_app_smoke.py.
+```
