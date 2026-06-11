@@ -117,3 +117,8 @@ gives every visitor a plan — ZeroGPU when they have quota, HF serverless (via 
 `HF_TOKEN` secret) when they don't. Decoding temperature became `UNSTUCK_TEMPERATURE` at the
 same time: greedy stays the measured default; sampling is one env var away, gated on re-running
 the eval, not on vibes.
+
+Re-ran at `UNSTUCK_TEMPERATURE=0.3`: identical headline (35/36 valid, all first-try, zero
+cap violations), marginally better deep-work coverage. Verdict: greedy stays the code
+default; 0.3 is eval-cleared for the live Space so repeated demo runs don't produce
+byte-identical plans.
