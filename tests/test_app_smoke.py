@@ -100,6 +100,110 @@ def test_summary_html_mixed_logged_rows() -> None:
     assert "1/2 done" in html
 
 
+def test_patterns_html_empty_records() -> None:
+    assert app.patterns_html([]) == ""
+
+
+def test_patterns_html_sorts_categories_and_shows_counts() -> None:
+    records = [
+        {
+            "category": "creative",
+            "est_minutes": 10,
+            "actual_minutes": 10,
+            "completed_at": 2.0,
+        },
+        {
+            "category": "admin",
+            "est_minutes": 10,
+            "actual_minutes": 20,
+            "completed_at": 1.0,
+        },
+    ]
+
+    html = app.patterns_html(records)
+
+    assert html.startswith('<div class="patterns">')
+    assert html.index('<span class="pattern-cat">admin</span>') < html.index(
+        '<span class="pattern-cat">creative</span>'
+    )
+    assert '<span class="pattern-n">1 logged</span>' in html
+
+
+def test_patterns_html_verdict_strings() -> None:
+    records = []
+    for offset, category, actual in [
+        (0, "under", 20),
+        (10, "over", 5),
+        (20, "right", 10),
+    ]:
+        records.extend(
+            {
+                "category": category,
+                "est_minutes": 10,
+                "actual_minutes": actual,
+                "completed_at": float(offset + index),
+            }
+            for index in range(3)
+        )
+
+    html = app.patterns_html(records)
+
+    assert "~2.0× — you underestimate these" in html
+    assert "~0.5× — you overestimate these" in html
+    assert "~1.0× — your gut is right" in html
+
+
+def test_patterns_html_bar_heights_are_clamped() -> None:
+    records = [
+        {
+            "category": "admin",
+            "est_minutes": 1,
+            "actual_minutes": 10,
+            "completed_at": 1.0,
+        },
+        {
+            "category": "admin",
+            "est_minutes": 100,
+            "actual_minutes": 1,
+            "completed_at": 2.0,
+        },
+    ]
+
+    html = app.patterns_html(records)
+
+    assert 'style="height:36px"' in html
+    assert 'style="height:4px"' in html
+
+
+def test_patterns_html_uses_last_five_records_chronologically() -> None:
+    records = [
+        {
+            "category": "admin",
+            "est_minutes": 10,
+            "actual_minutes": actual,
+            "completed_at": float(completed_at),
+        }
+        for completed_at, actual in [
+            (1, 1),
+            (2, 2),
+            (3, 3),
+            (4, 4),
+            (5, 5),
+            (6, 6),
+            (7, 7),
+        ]
+    ]
+
+    html = app.patterns_html(records)
+
+    assert html.count('class="bar"') == 5
+    assert 'title="est 10 → took 1 min"' not in html
+    assert 'title="est 10 → took 2 min"' not in html
+    assert html.index('title="est 10 → took 3 min"') < html.index(
+        'title="est 10 → took 7 min"'
+    )
+
+
 def test_plan_markdown_mixed_rows_golden() -> None:
     rows = [
         {
@@ -229,13 +333,14 @@ def test_restore_roundtrips_saved_rows_and_task() -> None:
     ]
     app.snapshot(store, "Write review", rows)
 
-    restored_rows, readout, summary, task_update = app.restore_snapshot(
+    restored_rows, readout, summary, patterns, task_update = app.restore_snapshot(
         store, lambda: "learned readout"
     )
 
     assert restored_rows == rows
     assert readout == "learned readout"
     assert "20" in summary
+    assert patterns == ""
     assert task_update["value"] == "Write review"
 
 
@@ -243,11 +348,12 @@ def test_restore_corrupted_rows_json_yields_empty_state() -> None:
     store = Store(":memory:")
     store.save_plan("Write review", "{")
 
-    rows, readout, summary, task_update = app.restore_snapshot(
+    rows, readout, summary, patterns, task_update = app.restore_snapshot(
         store, lambda: "learned readout"
     )
 
     assert rows == []
     assert readout == "learned readout"
     assert summary == ""
+    assert patterns == ""
     assert "value" not in task_update

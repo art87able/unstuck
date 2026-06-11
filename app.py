@@ -5,6 +5,7 @@ import os
 import sys
 import tempfile
 import time
+import html
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -63,6 +64,14 @@ CSS = """
   font-size: 0.95rem; text-align: center; margin-top: 6px; }
 .summary { background: #f5f5f4; color: #57534e; border-radius: 12px; padding: 10px 16px;
   font-size: 0.94rem; text-align: center; margin-top: 8px; font-weight: 600; }
+.patterns { display:flex; flex-direction:column; gap:8px; }
+.pattern-row { display:flex; align-items:flex-end; gap:10px; background:#fff;
+  border:1px solid #eee9e2; border-radius:10px; padding:8px 14px; font-size:0.88rem; }
+.pattern-cat { font-weight:600; color:#292524; min-width:90px; }
+.pattern-mult { color:#4338ca; flex:1; }
+.bar { display:inline-block; width:7px; background:#c7d2fe; border-radius:3px 3px 0 0;
+  margin-right:2px; }
+.pattern-n { color:#a8a29e; font-size:0.8rem; }
 .explainer { color: #a8a29e; font-size: 0.86rem; text-align: center; margin-top: 10px; }
 footer { display: none !important; }
 """
@@ -103,13 +112,64 @@ def summary_html(rows: list[dict[str, Any]]) -> str:
     return f'<div class="summary">{text}</div>'
 
 
+def patterns_html(records: list[dict]) -> str:
+    """Return per-category calibration history as compact HTML."""
+    if not records:
+        return ""
+
+    blocks = []
+    for category in sorted({str(record["category"]) for record in records}):
+        category_records = [
+            (index, record)
+            for index, record in enumerate(records)
+            if str(record.get("category")) == category
+        ]
+        ordered = sorted(
+            category_records,
+            key=lambda item: (float(item[1].get("completed_at", item[0])), item[0]),
+        )
+        recent = [record for _index, record in ordered[-5:]]
+        mult = multiplier(category, records)
+        if mult > 1.05:
+            verdict = "you underestimate these"
+        elif mult < 0.95:
+            verdict = "you overestimate these"
+        else:
+            verdict = "your gut is right"
+
+        bars = []
+        for record in recent:
+            est = int(record["est_minutes"])
+            actual = int(record["actual_minutes"])
+            ratio = actual / est
+            height = max(4, min(36, int(round(ratio * 14))))
+            title = html.escape(f"est {est} → took {actual} min", quote=True)
+            bars.append(
+                f'<span class="bar" style="height:{height}px" '
+                f'title="{title}"></span>'
+            )
+
+        cat = html.escape(category)
+        blocks.append(
+            '<div class="pattern-row">'
+            f'<span class="pattern-cat">{cat}</span>'
+            f'<span class="pattern-mult">~{mult:.1f}× — {verdict}</span>'
+            + "".join(bars)
+            + f'<span class="pattern-n">{len(category_records)} logged</span>'
+            "</div>"
+        )
+
+    return '<div class="patterns">' + "".join(blocks) + "</div>"
+
+
 def restore_snapshot(
     store: Store, readout: Callable[[], str]
-) -> tuple[list[dict[str, Any]], str, str, Any]:
+) -> tuple[list[dict[str, Any]], str, str, str, Any]:
     """Return saved plan state for Gradio load, or an empty state on bad JSON."""
+    patterns = patterns_html(store.get_records())
     saved = store.load_plan()
     if saved is None:
-        return [], readout(), "", gr.update()
+        return [], readout(), "", patterns, gr.update()
 
     saved_task, rows_json = saved
     try:
@@ -118,9 +178,9 @@ def restore_snapshot(
             raise ValueError("saved rows must be a list")
         summary = summary_html(rows)
     except Exception:
-        return [], readout(), "", gr.update()
+        return [], readout(), "", patterns, gr.update()
 
-    return rows, readout(), summary, gr.update(value=saved_task)
+    return rows, readout(), summary, patterns, gr.update(value=saved_task)
 
 
 def plan_markdown(task: str, rows: list[dict]) -> str:
@@ -223,20 +283,28 @@ def build_ui(service: Unstuck) -> gr.Blocks:
             )
         return '<div class="readout">' + "<br>".join(lines) + "</div>"
 
+    def patterns() -> str:
+        return patterns_html(service.store.get_records())
+
     def persist(task: str, rows: list[dict[str, Any]]) -> None:
         try:
             snapshot(service.store, task, rows)
         except Exception:
             pass
 
-    def restore() -> tuple[list[dict[str, Any]], str, str, Any]:
+    def restore() -> tuple[list[dict[str, Any]], str, str, str, Any]:
         return restore_snapshot(service.store, readout)
 
-    def break_down(task: str) -> tuple[list[dict[str, Any]], str, str]:
+    def break_down(task: str) -> tuple[list[dict[str, Any]], str, str, str]:
         clean_task = task.strip()
         if not clean_task:
             persist(clean_task, [])
-            return [], '<div class="explainer">Enter a task to break down.</div>', ""
+            return (
+                [],
+                '<div class="explainer">Enter a task to break down.</div>',
+                "",
+                patterns(),
+            )
         try:
             rows = view_rows(service.breakdown(clean_task))
         except Exception:
@@ -248,25 +316,26 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                 "Try again in a minute. Logging in to Hugging Face raises the free "
                 "ZeroGPU quota.</div>",
                 "",
+                patterns(),
             )
         persist(clean_task, rows)
-        return rows, readout(), summary_html(rows)
+        return rows, readout(), summary_html(rows), patterns()
 
     def log_step(
         step_id: int,
     ) -> Any:
         def handler(
             minutes: float | None, task: str, rows: list[dict[str, Any]]
-        ) -> tuple[list[dict[str, Any]], str, str]:
+        ) -> tuple[list[dict[str, Any]], str, str, str]:
             row = next((row for row in rows if row["step_id"] == step_id), None)
             if row is None:
                 persist(task, rows)
-                return rows, readout(), summary_html(rows)
+                return rows, readout(), summary_html(rows), patterns()
             actual = finish_minutes(minutes, row.get("started_at"), time.time())
             if actual is None:
                 gr.Warning("Press Start first or enter minutes.")
                 persist(task, rows)
-                return rows, readout(), summary_html(rows)
+                return rows, readout(), summary_html(rows), patterns()
             service.log_actual(step_id, actual)
             rows = [
                 {**row, "logged": True, "actual_minutes": actual, "started_at": None}
@@ -276,7 +345,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
             ]
             rows = recalibrated(rows)
             persist(task, rows)
-            return rows, readout(), summary_html(rows)
+            return rows, readout(), summary_html(rows), patterns()
 
         return handler
 
@@ -285,7 +354,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
     ) -> Any:
         def handler(
             task: str, rows: list[dict[str, Any]]
-        ) -> tuple[list[dict[str, Any]], str, str]:
+        ) -> tuple[list[dict[str, Any]], str, str, str]:
             rows = [
                 {**row, "started_at": time.time()}
                 if row["step_id"] == step_id
@@ -293,7 +362,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                 for row in rows
             ]
             persist(task, rows)
-            return rows, readout(), summary_html(rows)
+            return rows, readout(), summary_html(rows), patterns()
 
         return handler
 
@@ -302,11 +371,11 @@ def build_ui(service: Unstuck) -> gr.Blocks:
     ) -> Any:
         def handler(
             task: str, rows: list[dict[str, Any]]
-        ) -> tuple[list[dict[str, Any]], str, str]:
+        ) -> tuple[list[dict[str, Any]], str, str, str]:
             if len(rows) >= 16:
                 gr.Warning("That's plenty of steps — try starting the first tiny one")
                 persist(task, rows)
-                return rows, readout(), summary_html(rows)
+                return rows, readout(), summary_html(rows), patterns()
 
             step_text = next(
                 (str(row["text"]) for row in rows if row["step_id"] == step_id),
@@ -314,7 +383,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
             )
             if step_text is None:
                 persist(task, rows)
-                return rows, readout(), summary_html(rows)
+                return rows, readout(), summary_html(rows), patterns()
 
             try:
                 new_rows = view_rows(service.breakdown(step_text))
@@ -324,11 +393,11 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                     "Try again in a minute."
                 )
                 persist(task, rows)
-                return rows, readout(), summary_html(rows)
+                return rows, readout(), summary_html(rows), patterns()
 
             spliced = splice_rows(rows, step_id, new_rows)
             persist(task, spliced)
-            return spliced, readout(), summary_html(spliced)
+            return spliced, readout(), summary_html(spliced), patterns()
 
         return handler
 
@@ -346,19 +415,24 @@ def build_ui(service: Unstuck) -> gr.Blocks:
 
     def import_data(
         file: Any, task: str, rows: list[dict[str, Any]]
-    ) -> tuple[list[dict[str, Any]], str, str]:
+    ) -> tuple[list[dict[str, Any]], str, str, str]:
         file_path = getattr(file, "name", file)
         try:
             status = parse_import(file_path, service.store)
         except (OSError, TypeError, ValueError):
             gr.Warning("That file doesn't look like an Unstuck export.")
             persist(task, rows)
-            return rows, readout(), summary_html(rows)
+            return rows, readout(), summary_html(rows), patterns()
 
         updated_rows = recalibrated(rows)
         status_html = f'<div class="summary">{status}</div>'
         persist(task, updated_rows)
-        return updated_rows, readout() + status_html, summary_html(updated_rows)
+        return (
+            updated_rows,
+            readout() + status_html,
+            summary_html(updated_rows),
+            patterns(),
+        )
 
     def copy_checklist(task: str, rows: list[dict[str, Any]]) -> Any:
         markdown = plan_markdown(task, rows)
@@ -389,6 +463,8 @@ def build_ui(service: Unstuck) -> gr.Blocks:
         )
         readout_output = gr.HTML()
         summary_output = gr.HTML()
+        with gr.Accordion("Your patterns", open=False):
+            patterns_output = gr.HTML()
 
         @gr.render(inputs=rows_state)
         def render_rows(rows: list[dict[str, Any]]) -> None:
@@ -429,7 +505,12 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                         start.click(
                             start_step(int(row["step_id"])),
                             inputs=[task, rows_state],
-                            outputs=[rows_state, readout_output, summary_output],
+                            outputs=[
+                                rows_state,
+                                readout_output,
+                                summary_output,
+                                patterns_output,
+                            ],
                             api_visibility="private",
                         )
                         minutes = gr.Number(
@@ -448,7 +529,12 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                         done.click(
                             log_step(int(row["step_id"])),
                             inputs=[minutes, task, rows_state],
-                            outputs=[rows_state, readout_output, summary_output],
+                            outputs=[
+                                rows_state,
+                                readout_output,
+                                summary_output,
+                                patterns_output,
+                            ],
                             api_visibility="private",
                         )
                         still_stuck = gr.Button(
@@ -461,7 +547,12 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                         still_stuck.click(
                             break_down_step(int(row["step_id"])),
                             inputs=[task, rows_state],
-                            outputs=[rows_state, readout_output, summary_output],
+                            outputs=[
+                                rows_state,
+                                readout_output,
+                                summary_output,
+                                patterns_output,
+                            ],
                             api_visibility="private",
                         )
             gr.HTML(
@@ -486,18 +577,18 @@ def build_ui(service: Unstuck) -> gr.Blocks:
         break_button.click(
             break_down,
             inputs=task,
-            outputs=[rows_state, readout_output, summary_output],
+            outputs=[rows_state, readout_output, summary_output, patterns_output],
         )
         task.submit(
             break_down,
             inputs=task,
-            outputs=[rows_state, readout_output, summary_output],
+            outputs=[rows_state, readout_output, summary_output, patterns_output],
         )
         export_button.click(export_data, outputs=export_file)
         import_button.upload(
             import_data,
             inputs=[import_button, task, rows_state],
-            outputs=[rows_state, readout_output, summary_output],
+            outputs=[rows_state, readout_output, summary_output, patterns_output],
         )
         copy_button.click(
             copy_checklist,
@@ -506,7 +597,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
         )
         ui.load(
             restore,
-            outputs=[rows_state, readout_output, summary_output, task],
+            outputs=[rows_state, readout_output, summary_output, patterns_output, task],
         )
 
     return ui
