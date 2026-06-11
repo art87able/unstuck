@@ -5,6 +5,8 @@ import os
 
 MODEL_ID = "Qwen/Qwen3-4B-Instruct-2507"
 BACKEND = os.environ.get("UNSTUCK_BACKEND", "zerogpu")
+NEBIUS_BASE_URL = os.environ.get("NEBIUS_BASE_URL", "https://api.studio.nebius.com/v1/")
+NEBIUS_MODEL = os.environ.get("NEBIUS_MODEL", MODEL_ID)
 
 
 if BACKEND == "zerogpu":
@@ -48,6 +50,25 @@ elif BACKEND == "hf_inference":
     def generate(prompt: str) -> str:
         """Generate text through the Hugging Face Inference API fallback."""
         response = client.chat_completion(
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=512,
+            temperature=0,
+        )
+        return str(response.choices[0].message.content)
+
+elif BACKEND == "nebius":
+    from huggingface_hub import InferenceClient
+
+    key = os.environ.get("NEBIUS_API_KEY")
+    if not key:
+        raise RuntimeError("NEBIUS_API_KEY is required for the nebius backend")
+
+    client = InferenceClient(base_url=NEBIUS_BASE_URL, api_key=key)
+
+    def generate(prompt: str) -> str:
+        """Generate text through the Nebius AI Studio serverless backend."""
+        response = client.chat_completion(
+            model=NEBIUS_MODEL,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=512,
             temperature=0,
