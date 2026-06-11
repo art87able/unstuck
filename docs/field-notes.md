@@ -86,3 +86,34 @@ keep, rather than silently losing it.
 Staying ≤4B wasn't just for the constraint. It means the core experience is self-hostable, the
 privacy story is real (the default backend keeps task text on the Space's GPU), and the
 calibration layer — plain Python and a median — carries the product weight the model can't.
+
+### 6. Measure the pipeline, then believe it
+
+A 12-task × 3-granularity eval through the real adapter pipeline (HF serverless,
+`Qwen3-4B`, temperature 0, one repair allowed) — run with
+[`scripts/eval_quality.py`](../scripts/eval_quality.py):
+
+| granularity | valid | first-try | repairs | >cap minutes | avg steps | categories seen |
+|---|---|---|---|---|---|---|
+| chunky | 12/12 | 12/12 | 0 | 0 | 4.0 | admin, creative, deep-work, errand |
+| regular | 12/12 | 12/12 | 0 | 0 | 5.1 | admin, creative, deep-work, errand |
+| tiny | 11/12 | 11/12 | 0 | 0 | 6.4 | admin, creative, deep-work, errand |
+
+Two things the table bought us beyond a number to quote. It **confirmed the few-shot
+label-space fix** (all four categories now appear at every granularity — before wave 10,
+`creative` and `deep-work` never showed). And the single failure was a *finding, not noise*:
+the model corrupted JSON mid-string (switched quote style after an apostrophe in a folder
+name), and the extraction scan happily decoded an **inner step object** as the whole payload —
+so the repair prompt carried a misleading "payload must include non-empty steps" diagnosis.
+Fix: prefer a decoded object that actually has a `"steps"` key. An eval that only reported a
+score would have hidden that; keeping the failing raw output is what made it debuggable.
+
+### 7. Degrade loudly, fall back quietly
+
+The live smoke test showed anonymous ZeroGPU quota can be **zero** — a judge clicking the
+Space gets a friendly error and never sees a plan. The fix wasn't a bigger GPU; it was the
+seam again: `generate()` is one callable, so a `with_fallback(primary, fallback)` wrapper
+gives every visitor a plan — ZeroGPU when they have quota, HF serverless (via the Space's
+`HF_TOKEN` secret) when they don't. Decoding temperature became `UNSTUCK_TEMPERATURE` at the
+same time: greedy stays the measured default; sampling is one env var away, gated on re-running
+the eval, not on vibes.

@@ -1115,3 +1115,31 @@ Touch ONLY: app.py, tests/test_app_smoke.py. TDD: failing tests first. Do NOT ru
    "fix(ui): accessible labels + default minutes for the manual-step row"
    staging only the two named files.
 ```
+
+## Task 30 — JSON extraction must prefer the steps payload over inner objects
+
+> Added 2026-06-11: measured eval (12 tasks x 3 granularities, hf_inference) scored 35/36
+> first-try valid. The one failure exposed a real extraction bug: the model corrupted its JSON
+> mid-string (switched to single quotes after an apostrophe), and _extract_json's brace scan
+> decoded an INNER step object ({"text": ...}) as the payload — so validation said "payload
+> must include non-empty steps" and the repair prompt carried a misleading diagnosis.
+
+```
+Touch ONLY: src/unstuck/model_adapter.py, tests/test_model_adapter.py. TDD: failing tests
+first. Do NOT run git.
+
+1. _extract_json: scan ALL decodable JSON objects in the text (current raw_decode-from-each-
+   "{" loop). Return the FIRST decoded dict containing a "steps" key. If none has "steps",
+   return the first decodable object (preserves current behaviour for malformed-but-single
+   payloads). Still raise StepValidationError("no JSON object found") when nothing decodes.
+2. Tests (use this real corrupted output shape, shortened): a string where the outer
+   {"steps":[...]} is broken by a mid-string quote switch but a later inner step object
+   {"text":"Connect the phone via USB","category":"errand","est_minutes":10} decodes —
+   assert _extract_json now raises... no: assert it returns an object WITHOUT "steps" only
+   when no steps-bearing object exists; and that for output where a steps-bearing object
+   appears AFTER a non-steps object, the steps one wins. Plus: existing tests stay green.
+3. Run: python -m pytest -q (133+ baseline minus launch tests if sandbox blocks sockets).
+4. (Commit handled by reviewer.) Intended message:
+   "fix(model): JSON extraction prefers the steps payload over inner step objects"
+   staging only the two named files.
+```
