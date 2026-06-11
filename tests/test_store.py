@@ -115,3 +115,27 @@ def test_import_json_bad_record_rows_raise_value_error() -> None:
         assert str(exc)
     else:
         raise AssertionError("expected ValueError")
+
+
+def test_plan_snapshot_save_then_load_roundtrips_opaque_rows_json() -> None:
+    store = Store(":memory:")
+    rows_json = '[{"step_id": 1, "text": "Open doc"}]'
+
+    store.save_plan("Write review", rows_json)
+
+    assert store.load_plan() == ("Write review", rows_json)
+
+
+def test_plan_snapshot_second_save_overwrites_single_row() -> None:
+    store = Store(":memory:")
+    store.save_plan("First task", '[{"step_id": 1}]')
+
+    store.save_plan("Second task", '[{"step_id": 2}]')
+
+    assert store.load_plan() == ("Second task", '[{"step_id": 2}]')
+
+
+def test_plan_snapshot_fresh_store_returns_none() -> None:
+    store = Store(":memory:")
+
+    assert store.load_plan() is None

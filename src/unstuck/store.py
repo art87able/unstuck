@@ -4,6 +4,7 @@ import json
 import sqlite3
 import threading
 import time
+from datetime import datetime, timezone
 from typing import Any
 
 from unstuck.schema import Step
@@ -88,6 +89,33 @@ class Store:
                 """
             ).fetchall()
         return [dict(row) for row in rows]
+
+    def save_plan(self, task: str, rows_json: str) -> None:
+        """Persist the latest visible plan snapshot as opaque row JSON."""
+        saved_at = datetime.now(timezone.utc).isoformat()
+        with self._lock:
+            self.conn.execute(
+                """
+                insert into plan_snapshot (id, task, rows_json, saved_at)
+                values (1, ?, ?, ?)
+                on conflict(id) do update set
+                    task = excluded.task,
+                    rows_json = excluded.rows_json,
+                    saved_at = excluded.saved_at
+                """,
+                (task, rows_json, saved_at),
+            )
+            self.conn.commit()
+
+    def load_plan(self) -> tuple[str, str] | None:
+        """Return the last saved visible plan snapshot, if one exists."""
+        with self._lock:
+            row = self.conn.execute(
+                "select task, rows_json from plan_snapshot where id = 1"
+            ).fetchone()
+        if row is None:
+            return None
+        return str(row["task"]), str(row["rows_json"])
 
     def export_json(self) -> str:
         with self._lock:
@@ -174,6 +202,13 @@ class Store:
                 est_minutes integer not null,
                 actual_minutes integer not null,
                 completed_at real not null
+            );
+
+            create table if not exists plan_snapshot (
+                id integer primary key check (id = 1),
+                task text,
+                rows_json text,
+                saved_at text
             );
             """
         )

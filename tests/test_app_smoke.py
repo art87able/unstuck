@@ -188,3 +188,66 @@ def test_finish_minutes_neither_set_returns_none() -> None:
 def test_finish_minutes_non_positive_manual_falls_through() -> None:
     assert app.finish_minutes(0, started_at=100.0, now=250.0) == 2
     assert app.finish_minutes(-1, started_at=None, now=250.0) is None
+
+
+def test_snapshot_writes_rows_json_to_store() -> None:
+    store = Store(":memory:")
+    rows = [{"step_id": 1, "text": "Open doc", "logged": False}]
+
+    app.snapshot(store, "Write review", rows)
+
+    saved = store.load_plan()
+    assert saved is not None
+    task, rows_json = saved
+    assert task == "Write review"
+    assert json.loads(rows_json) == rows
+
+
+def test_restore_roundtrips_saved_rows_and_task() -> None:
+    store = Store(":memory:")
+    rows = [
+        {
+            "step_id": 1,
+            "text": "Open doc",
+            "category": "admin",
+            "raw_minutes": 5,
+            "calibrated_minutes": 7,
+            "logged": True,
+            "actual_minutes": 8,
+            "started_at": None,
+        },
+        {
+            "step_id": 2,
+            "text": "Draft notes",
+            "category": "creative",
+            "raw_minutes": 10,
+            "calibrated_minutes": 12,
+            "logged": False,
+            "actual_minutes": None,
+            "started_at": 1234.5,
+        },
+    ]
+    app.snapshot(store, "Write review", rows)
+
+    restored_rows, readout, summary, task_update = app.restore_snapshot(
+        store, lambda: "learned readout"
+    )
+
+    assert restored_rows == rows
+    assert readout == "learned readout"
+    assert "20" in summary
+    assert task_update["value"] == "Write review"
+
+
+def test_restore_corrupted_rows_json_yields_empty_state() -> None:
+    store = Store(":memory:")
+    store.save_plan("Write review", "{")
+
+    rows, readout, summary, task_update = app.restore_snapshot(
+        store, lambda: "learned readout"
+    )
+
+    assert rows == []
+    assert readout == "learned readout"
+    assert summary == ""
+    assert "value" not in task_update

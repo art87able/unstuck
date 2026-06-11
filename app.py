@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 import os
 import sys
 import tempfile
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -77,6 +79,11 @@ def finish_minutes(
     return None
 
 
+def snapshot(store: Store, task: str, rows: list[dict]) -> None:
+    """Persist the visible plan rows for page-load recovery."""
+    store.save_plan(task, json.dumps(rows))
+
+
 def summary_html(rows: list[dict[str, Any]]) -> str:
     """Return total plan timing for the current UI rows."""
     if not rows:
@@ -94,6 +101,26 @@ def summary_html(rows: list[dict[str, Any]]) -> str:
     if n_done:
         text += f" · {n_done}/{len(rows)} done"
     return f'<div class="summary">{text}</div>'
+
+
+def restore_snapshot(
+    store: Store, readout: Callable[[], str]
+) -> tuple[list[dict[str, Any]], str, str, Any]:
+    """Return saved plan state for Gradio load, or an empty state on bad JSON."""
+    saved = store.load_plan()
+    if saved is None:
+        return [], readout(), "", gr.update()
+
+    saved_task, rows_json = saved
+    try:
+        rows = json.loads(rows_json)
+        if not isinstance(rows, list):
+            raise ValueError("saved rows must be a list")
+        summary = summary_html(rows)
+    except Exception:
+        return [], readout(), "", gr.update()
+
+    return rows, readout(), summary, gr.update(value=saved_task)
 
 
 def plan_markdown(task: str, rows: list[dict]) -> str:
@@ -196,14 +223,25 @@ def build_ui(service: Unstuck) -> gr.Blocks:
             )
         return '<div class="readout">' + "<br>".join(lines) + "</div>"
 
+    def persist(task: str, rows: list[dict[str, Any]]) -> None:
+        try:
+            snapshot(service.store, task, rows)
+        except Exception:
+            pass
+
+    def restore() -> tuple[list[dict[str, Any]], str, str, Any]:
+        return restore_snapshot(service.store, readout)
+
     def break_down(task: str) -> tuple[list[dict[str, Any]], str, str]:
         clean_task = task.strip()
         if not clean_task:
+            persist(clean_task, [])
             return [], '<div class="explainer">Enter a task to break down.</div>', ""
         try:
             rows = view_rows(service.breakdown(clean_task))
         except Exception:
             gr.Warning("The model backend is busy. Try again in a minute.")
+            persist(clean_task, [])
             return (
                 [],
                 '<div class="explainer">The model backend is busy or out of GPU quota. '
@@ -211,20 +249,23 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                 "ZeroGPU quota.</div>",
                 "",
             )
+        persist(clean_task, rows)
         return rows, readout(), summary_html(rows)
 
     def log_step(
         step_id: int,
     ) -> Any:
         def handler(
-            minutes: float | None, rows: list[dict[str, Any]]
+            minutes: float | None, task: str, rows: list[dict[str, Any]]
         ) -> tuple[list[dict[str, Any]], str, str]:
             row = next((row for row in rows if row["step_id"] == step_id), None)
             if row is None:
+                persist(task, rows)
                 return rows, readout(), summary_html(rows)
             actual = finish_minutes(minutes, row.get("started_at"), time.time())
             if actual is None:
                 gr.Warning("Press Start first or enter minutes.")
+                persist(task, rows)
                 return rows, readout(), summary_html(rows)
             service.log_actual(step_id, actual)
             rows = [
@@ -234,6 +275,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                 for row in rows
             ]
             rows = recalibrated(rows)
+            persist(task, rows)
             return rows, readout(), summary_html(rows)
 
         return handler
@@ -242,7 +284,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
         step_id: int,
     ) -> Any:
         def handler(
-            rows: list[dict[str, Any]]
+            task: str, rows: list[dict[str, Any]]
         ) -> tuple[list[dict[str, Any]], str, str]:
             rows = [
                 {**row, "started_at": time.time()}
@@ -250,6 +292,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                 else row
                 for row in rows
             ]
+            persist(task, rows)
             return rows, readout(), summary_html(rows)
 
         return handler
@@ -258,10 +301,11 @@ def build_ui(service: Unstuck) -> gr.Blocks:
         step_id: int,
     ) -> Any:
         def handler(
-            rows: list[dict[str, Any]]
+            task: str, rows: list[dict[str, Any]]
         ) -> tuple[list[dict[str, Any]], str, str]:
             if len(rows) >= 16:
                 gr.Warning("That's plenty of steps — try starting the first tiny one")
+                persist(task, rows)
                 return rows, readout(), summary_html(rows)
 
             step_text = next(
@@ -269,6 +313,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                 None,
             )
             if step_text is None:
+                persist(task, rows)
                 return rows, readout(), summary_html(rows)
 
             try:
@@ -278,9 +323,11 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                     "The model backend is busy or out of GPU quota. "
                     "Try again in a minute."
                 )
+                persist(task, rows)
                 return rows, readout(), summary_html(rows)
 
             spliced = splice_rows(rows, step_id, new_rows)
+            persist(task, spliced)
             return spliced, readout(), summary_html(spliced)
 
         return handler
@@ -298,17 +345,19 @@ def build_ui(service: Unstuck) -> gr.Blocks:
         return handle.name
 
     def import_data(
-        file: Any, rows: list[dict[str, Any]]
+        file: Any, task: str, rows: list[dict[str, Any]]
     ) -> tuple[list[dict[str, Any]], str, str]:
         file_path = getattr(file, "name", file)
         try:
             status = parse_import(file_path, service.store)
         except (OSError, TypeError, ValueError):
             gr.Warning("That file doesn't look like an Unstuck export.")
+            persist(task, rows)
             return rows, readout(), summary_html(rows)
 
         updated_rows = recalibrated(rows)
         status_html = f'<div class="summary">{status}</div>'
+        persist(task, updated_rows)
         return updated_rows, readout() + status_html, summary_html(updated_rows)
 
     def copy_checklist(task: str, rows: list[dict[str, Any]]) -> Any:
@@ -379,7 +428,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                         )
                         start.click(
                             start_step(int(row["step_id"])),
-                            inputs=rows_state,
+                            inputs=[task, rows_state],
                             outputs=[rows_state, readout_output, summary_output],
                             api_visibility="private",
                         )
@@ -398,7 +447,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                         )
                         done.click(
                             log_step(int(row["step_id"])),
-                            inputs=[minutes, rows_state],
+                            inputs=[minutes, task, rows_state],
                             outputs=[rows_state, readout_output, summary_output],
                             api_visibility="private",
                         )
@@ -411,7 +460,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                         )
                         still_stuck.click(
                             break_down_step(int(row["step_id"])),
-                            inputs=rows_state,
+                            inputs=[task, rows_state],
                             outputs=[rows_state, readout_output, summary_output],
                             api_visibility="private",
                         )
@@ -447,13 +496,17 @@ def build_ui(service: Unstuck) -> gr.Blocks:
         export_button.click(export_data, outputs=export_file)
         import_button.upload(
             import_data,
-            inputs=[import_button, rows_state],
+            inputs=[import_button, task, rows_state],
             outputs=[rows_state, readout_output, summary_output],
         )
         copy_button.click(
             copy_checklist,
             inputs=[task, rows_state],
             outputs=checklist_output,
+        )
+        ui.load(
+            restore,
+            outputs=[rows_state, readout_output, summary_output, task],
         )
 
     return ui
