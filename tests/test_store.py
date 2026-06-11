@@ -43,3 +43,75 @@ def test_export_json_includes_all_tables() -> None:
     assert len(payload["steps"]) == 1
     assert len(payload["records"]) == 1
     assert payload["steps"][0]["category"] == "admin"
+
+
+def test_import_json_restores_records_into_fresh_store() -> None:
+    source = Store(":memory:")
+    task_id = source.add_task("clear inbox", now=123.0)
+    source.add_steps(
+        task_id,
+        [Step(text="Archive old messages", category="admin", est_minutes=10)],
+    )
+    step_id = source.first_step_id(task_id)
+    source.record_actual(step_id, "admin", 10, 12, now=456.0)
+
+    restored = Store(":memory:")
+    result = restored.import_json(source.export_json())
+
+    assert result == {"imported": 1, "skipped": 0}
+    assert restored.get_records() == source.get_records()
+
+
+def test_import_json_skips_duplicate_records() -> None:
+    source = Store(":memory:")
+    task_id = source.add_task("clear inbox", now=123.0)
+    source.add_steps(
+        task_id,
+        [Step(text="Archive old messages", category="admin", est_minutes=10)],
+    )
+    step_id = source.first_step_id(task_id)
+    source.record_actual(step_id, "admin", 10, 12, now=456.0)
+    payload = source.export_json()
+
+    restored = Store(":memory:")
+    assert restored.import_json(payload) == {"imported": 1, "skipped": 0}
+
+    assert restored.import_json(payload) == {"imported": 0, "skipped": 1}
+    assert restored.get_records() == source.get_records()
+
+
+def test_import_json_malformed_json_raises_value_error() -> None:
+    store = Store(":memory:")
+
+    try:
+        store.import_json("{")
+    except ValueError as exc:
+        assert str(exc)
+    else:
+        raise AssertionError("expected ValueError")
+
+
+def test_import_json_bad_record_rows_raise_value_error() -> None:
+    store = Store(":memory:")
+    payload = json.dumps(
+        {
+            "tasks": [],
+            "steps": [],
+            "records": [
+                {
+                    "step_id": 1,
+                    "category": "admin",
+                    "est_minutes": 0,
+                    "actual_minutes": 12,
+                    "completed_at": 456.0,
+                }
+            ],
+        }
+    )
+
+    try:
+        store.import_json(payload)
+    except ValueError as exc:
+        assert str(exc)
+    else:
+        raise AssertionError("expected ValueError")

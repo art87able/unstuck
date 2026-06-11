@@ -98,6 +98,16 @@ def splice_rows(
     return spliced if found else rows
 
 
+def parse_import(file_path: str | os.PathLike[str], store: Store) -> str:
+    """Import an Unstuck export file and return a short user-facing status."""
+    payload = Path(file_path).read_text(encoding="utf-8")
+    result = store.import_json(payload)
+    return (
+        f"Imported {result['imported']} records "
+        f"({result['skipped']} duplicates skipped)"
+    )
+
+
 def build_ui(service: Unstuck) -> gr.Blocks:
     """Build the Gradio UI around an injected Unstuck service."""
 
@@ -231,6 +241,20 @@ def build_ui(service: Unstuck) -> gr.Blocks:
             handle.write(service.store.export_json())
         return handle.name
 
+    def import_data(
+        file: Any, rows: list[dict[str, Any]]
+    ) -> tuple[list[dict[str, Any]], str, str]:
+        file_path = getattr(file, "name", file)
+        try:
+            status = parse_import(file_path, service.store)
+        except (OSError, TypeError, ValueError):
+            gr.Warning("That file doesn't look like an Unstuck export.")
+            return rows, readout(), summary_html(rows)
+
+        updated_rows = recalibrated(rows)
+        status_html = f'<div class="summary">{status}</div>'
+        return updated_rows, readout() + status_html, summary_html(updated_rows)
+
     with gr.Blocks(title="Unstuck") as ui:
         gr.HTML(
             '<div id="hero"><h1>Unstuck</h1>'
@@ -320,7 +344,12 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                 "remaining estimates adjust.</div>"
             )
 
-        export_button = gr.Button("Export my data (JSON)")
+        with gr.Row():
+            export_button = gr.Button("Export my data (JSON)")
+            import_button = gr.UploadButton(
+                "Import my data (JSON)",
+                file_types=[".json"],
+            )
         export_file = gr.File(label="Download", interactive=False)
 
         break_button.click(
@@ -329,6 +358,11 @@ def build_ui(service: Unstuck) -> gr.Blocks:
             outputs=[rows_state, readout_output, summary_output],
         )
         export_button.click(export_data, outputs=export_file)
+        import_button.upload(
+            import_data,
+            inputs=[import_button, rows_state],
+            outputs=[rows_state, readout_output, summary_output],
+        )
 
     return ui
 

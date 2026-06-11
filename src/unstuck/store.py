@@ -98,6 +98,57 @@ class Store:
             }
         return json.dumps(payload, indent=2)
 
+    def import_json(self, payload: str) -> dict[str, int]:
+        """Import calibration records from an export_json() payload."""
+        try:
+            data = json.loads(payload)
+        except json.JSONDecodeError as exc:
+            raise ValueError("invalid json") from exc
+
+        rows = self._validate_import_payload(data)
+        imported = 0
+        skipped = 0
+        with self._lock:
+            for row in rows:
+                duplicate = self.conn.execute(
+                    """
+                    select 1 from record
+                    where category = ?
+                      and est_minutes = ?
+                      and actual_minutes = ?
+                      and completed_at = ?
+                    limit 1
+                    """,
+                    (
+                        row["category"],
+                        row["est_minutes"],
+                        row["actual_minutes"],
+                        row["completed_at"],
+                    ),
+                ).fetchone()
+                if duplicate is not None:
+                    skipped += 1
+                    continue
+
+                self.conn.execute(
+                    """
+                    insert into record
+                        (step_id, category, est_minutes, actual_minutes, completed_at)
+                    values (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        row["step_id"],
+                        row["category"],
+                        row["est_minutes"],
+                        row["actual_minutes"],
+                        row["completed_at"],
+                    ),
+                )
+                imported += 1
+            self.conn.commit()
+
+        return {"imported": imported, "skipped": skipped}
+
     def _create_schema(self) -> None:
         self.conn.executescript(
             """
@@ -138,3 +189,47 @@ class Store:
     def _table_rows(self, table: str) -> list[dict[str, Any]]:
         rows = self.conn.execute(f"select * from {table} order by id").fetchall()
         return [dict(row) for row in rows]
+
+    def _validate_import_payload(self, data: Any) -> list[dict[str, Any]]:
+        if not isinstance(data, dict):
+            raise ValueError("payload must be an object")
+
+        for key in ("tasks", "steps", "records"):
+            if key not in data:
+                raise ValueError(f"missing {key}")
+            if not isinstance(data[key], list):
+                raise ValueError(f"{key} must be a list")
+
+        rows: list[dict[str, Any]] = []
+        for index, row in enumerate(data["records"], start=1):
+            if not isinstance(row, dict):
+                raise ValueError(f"record {index} must be an object")
+
+            category = row.get("category")
+            est_minutes = row.get("est_minutes")
+            actual_minutes = row.get("actual_minutes")
+            step_id = row.get("step_id")
+            completed_at = row.get("completed_at")
+
+            if not isinstance(category, str):
+                raise ValueError(f"record {index} category must be a string")
+            if type(est_minutes) is not int or est_minutes <= 0:
+                raise ValueError(f"record {index} est_minutes must be positive")
+            if type(actual_minutes) is not int or actual_minutes <= 0:
+                raise ValueError(f"record {index} actual_minutes must be positive")
+            if type(step_id) is not int:
+                raise ValueError(f"record {index} step_id must be an integer")
+            if type(completed_at) not in (int, float):
+                raise ValueError(f"record {index} completed_at must be numeric")
+
+            rows.append(
+                {
+                    "step_id": step_id,
+                    "category": category,
+                    "est_minutes": est_minutes,
+                    "actual_minutes": actual_minutes,
+                    "completed_at": float(completed_at),
+                }
+            )
+
+        return rows

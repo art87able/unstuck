@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import pytest
 
 gr = pytest.importorskip("gradio")
@@ -107,3 +109,25 @@ def test_build_ui_does_not_call_backend() -> None:
     ui = app.build_ui(svc)
 
     assert isinstance(ui, gr.Blocks)
+
+
+def test_parse_import_imports_file_and_returns_status(tmp_path) -> None:
+    payload = {
+        "tasks": [],
+        "steps": [],
+        "records": [
+            {
+                "step_id": 99,
+                "category": "admin",
+                "est_minutes": 5,
+                "actual_minutes": 8,
+                "completed_at": 456.0,
+            }
+        ],
+    }
+    path = tmp_path / "unstuck.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    status = app.parse_import(str(path), Store(":memory:"))
+
+    assert status == "Imported 1 records (0 duplicates skipped)"
