@@ -8,6 +8,21 @@ sdk_version: "6.17.3"
 python_version: "3.12.12"
 app_file: app.py
 pinned: false
+tags:
+  - build-small-hackathon
+  - backyard-ai
+  - off-brand
+  - field-notes
+  - sharing-is-caring
+  - codex
+  - agent-trace
+  - zerogpu
+  - qwen
+  - adhd
+  - task-breakdown
+  - calibration
+  - privacy
+  - small-models
 ---
 
 # Unstuck
