@@ -1,0 +1,21 @@
+docs/deliverables/demo-script.md
+  s_8e4bae34826532::t_2b1fb028a76531 5,8-9,11-12,14-15,17-18,20-21,23,25-32
+docs/deliverables/social-post.md
+  s_8e4bae34826532::t_d712608a2f6107 5,7,9-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "d3b0bfb8cd76a6906a392c9e01dd432d1a835412",
+  "prompts": {},
+  "sessions": {
+    "s_8e4bae34826532": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0809aeb0-fbb6-4a6c-b51a-bb28e66584db",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Artur Arapov <art87able@gmail.com>"
+    }
+  }
+}
