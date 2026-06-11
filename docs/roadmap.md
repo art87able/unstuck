@@ -14,6 +14,10 @@ Ideas and checks for later stages. Not commitments.
 - [x] **Task 17 — plan survives page reload** *(done 2026-06-11, `10ce2d4`: single-row
   `plan_snapshot` upsert in SQLite, every row-returning handler persists, `ui.load` restores;
   live E2E verified with a stubbed backend)*.
+- [x] **Task 18 — "Your patterns" stats panel** *(done 2026-06-11: per-category multiplier +
+  verdict + last-5 mini bar strip in a collapsed accordion; refreshed from every handler)*.
+- [x] **Task 19 — progressive reveal** *(done 2026-06-11: first unlogged step spotlighted with
+  full controls, later steps dimmed and control-free — anti-overwhelm by construction)*.
 - [ ] **Demo capture 2026-06-14** — ~90s video per `docs/deliverables/demo-script.md`, recorded in an HF-logged-in browser (anonymous ZeroGPU quota dies mid-demo), then post `docs/deliverables/social-post.md`. Submission deadline 2026-06-15.
 
 ## Nebius Serverless AI Builders Challenge (deadline 2026-06-30)
