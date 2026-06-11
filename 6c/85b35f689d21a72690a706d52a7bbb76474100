@@ -1,0 +1,20 @@
+docs/roadmap.md
+  s_3c93f87b70d3f2::t_77ffe95c7dcd9a 7
+  s_3c93f87b70d3f2::t_46ee4fd7e35bd0 1-6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "6c85b35f689d21a72690a706d52a7bbb76474100",
+  "prompts": {},
+  "sessions": {
+    "s_3c93f87b70d3f2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "38e94edd-84e3-44f9-bea0-042c4c49b138",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Artur Arapov <art87able@gmail.com>"
+    }
+  }
+}
