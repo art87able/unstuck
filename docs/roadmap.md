@@ -19,6 +19,9 @@ Ideas and checks for later stages. Not commitments.
 - [x] **Task 19 — progressive reveal** *(done 2026-06-11: first unlogged step spotlighted with
   full controls, later steps dimmed and control-free — anti-overwhelm by construction)*.
 - [x] **Tasks 20–22 — New plan, Skip step, completion banner** *(done 2026-06-11: clear board + snapshot; skip resolves without polluting calibration; honest-stats banner; suite 77 green)*.
+- [x] **Task 23 — per-user data via gr.BrowserState** *(done 2026-06-11: plans + calibration
+  records moved to browser localStorage — multi-user isolation + the privacy headline; server
+  SQLite keeps only task/step bookkeeping; suite 88 green, live E2E verified)*.
 - [ ] **Demo capture 2026-06-14** — ~90s video per `docs/deliverables/demo-script.md`, recorded in an HF-logged-in browser (anonymous ZeroGPU quota dies mid-demo), then post `docs/deliverables/social-post.md`. Submission deadline 2026-06-15.
 
 ## Nebius Serverless AI Builders Challenge (deadline 2026-06-30)
