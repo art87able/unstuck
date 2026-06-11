@@ -182,6 +182,121 @@ def test_summary_html_skipped_rows_contribute_nothing() -> None:
     assert "1 skipped" in html
 
 
+def test_completion_html_incomplete_plan_returns_empty() -> None:
+    rows = [
+        {
+            "logged": True,
+            "skipped": False,
+            "actual_minutes": 8,
+            "raw_minutes": 10,
+        },
+        {
+            "logged": False,
+            "skipped": False,
+            "actual_minutes": None,
+            "raw_minutes": 5,
+        },
+    ]
+
+    assert app.completion_html(rows) == ""
+
+
+def test_completion_html_all_skipped_returns_empty() -> None:
+    rows = [
+        {
+            "logged": False,
+            "skipped": True,
+            "actual_minutes": None,
+            "raw_minutes": 10,
+        },
+        {
+            "logged": False,
+            "skipped": True,
+            "actual_minutes": None,
+            "raw_minutes": 5,
+        },
+    ]
+
+    assert app.completion_html(rows) == ""
+
+
+def test_completion_html_done_with_skips_golden() -> None:
+    rows = [
+        {
+            "logged": True,
+            "skipped": False,
+            "actual_minutes": 12,
+            "raw_minutes": 10,
+        },
+        {
+            "logged": False,
+            "skipped": True,
+            "actual_minutes": None,
+            "raw_minutes": 20,
+        },
+        {
+            "logged": True,
+            "skipped": False,
+            "actual_minutes": 9,
+            "raw_minutes": 5,
+        },
+    ]
+
+    assert app.completion_html(rows) == (
+        '<div class="completion">🎉 Done — 2 steps in 21 min. (1 skipped)<br>'
+        "The AI guessed 15 min — you took 1.4× longer, and Unstuck now knows that."
+        "</div>"
+    )
+
+
+def test_completion_html_longer_ratio_verdict() -> None:
+    rows = [
+        {
+            "logged": True,
+            "skipped": False,
+            "actual_minutes": 11,
+            "raw_minutes": 10,
+        },
+    ]
+
+    assert (
+        "The AI guessed 10 min — you took 1.1× longer, and Unstuck now knows that."
+        in app.completion_html(rows)
+    )
+
+
+def test_completion_html_shorter_ratio_verdict() -> None:
+    rows = [
+        {
+            "logged": True,
+            "skipped": False,
+            "actual_minutes": 9,
+            "raw_minutes": 10,
+        },
+    ]
+
+    assert (
+        "The AI guessed 10 min — you beat it, finishing in 0.9× the time."
+        in app.completion_html(rows)
+    )
+
+
+def test_completion_html_close_ratio_verdict() -> None:
+    rows = [
+        {
+            "logged": True,
+            "skipped": False,
+            "actual_minutes": 10,
+            "raw_minutes": 10,
+        },
+    ]
+
+    assert (
+        "The AI guessed 10 min — almost exactly right."
+        in app.completion_html(rows)
+    )
+
+
 def test_patterns_html_empty_records() -> None:
     assert app.patterns_html([]) == ""
 

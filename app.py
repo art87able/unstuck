@@ -68,6 +68,8 @@ CSS = """
 .took-input input { border-radius: 10px !important; }
 .readout { background: #eef2ff; color: #4338ca; border-radius: 12px; padding: 12px 18px;
   font-size: 0.95rem; text-align: center; margin-top: 6px; }
+.completion { background:#ecfdf5; color:#047857; border-radius:12px;
+  padding:14px 18px; font-size:1rem; text-align:center; margin-top:10px; font-weight:600; }
 .summary { background: #f5f5f4; color: #57534e; border-radius: 12px; padding: 10px 16px;
   font-size: 0.94rem; text-align: center; margin-top: 8px; font-weight: 600; }
 .patterns { display:flex; flex-direction:column; gap:8px; }
@@ -128,6 +130,41 @@ def summary_html(rows: list[dict[str, Any]]) -> str:
     if n_skipped:
         text += f" · {n_skipped} skipped"
     return f'<div class="summary">{text}</div>'
+
+
+def completion_html(rows: list[dict]) -> str:
+    """Return the done-state banner once a plan has resolved."""
+    if not rows:
+        return ""
+    if not all(row["logged"] or row.get("skipped") for row in rows):
+        return ""
+
+    logged_rows = [row for row in rows if row["logged"]]
+    if not logged_rows:
+        return ""
+
+    n_done = len(logged_rows)
+    n_skipped = sum(1 for row in rows if row.get("skipped"))
+    took = sum(int(row["actual_minutes"]) for row in logged_rows)
+    est = sum(int(row["raw_minutes"]) for row in logged_rows)
+    line1 = f"🎉 Done — {n_done} steps in {took} min."
+    if n_skipped > 0:
+        line1 += f" ({n_skipped} skipped)"
+
+    ratio = took / est
+    if ratio > 1.05:
+        line2 = (
+            f"The AI guessed {est} min — you took {ratio:.1f}× longer, "
+            "and Unstuck now knows that."
+        )
+    elif ratio < 0.95:
+        line2 = (
+            f"The AI guessed {est} min — you beat it, "
+            f"finishing in {ratio:.1f}× the time."
+        )
+    else:
+        line2 = f"The AI guessed {est} min — almost exactly right."
+    return f'<div class="completion">{line1}<br>{line2}</div>'
 
 
 def patterns_html(records: list[dict]) -> str:
@@ -194,7 +231,7 @@ def restore_snapshot(
         rows = json.loads(rows_json)
         if not isinstance(rows, list):
             raise ValueError("saved rows must be a list")
-        summary = summary_html(rows)
+        summary = completion_html(rows) + summary_html(rows)
     except Exception:
         return [], readout(), "", patterns, gr.update()
 
@@ -351,7 +388,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                 patterns(),
             )
         persist(clean_task, rows)
-        return rows, readout(), summary_html(rows), patterns()
+        return rows, readout(), completion_html(rows) + summary_html(rows), patterns()
 
     def log_step(
         step_id: int,
@@ -362,12 +399,12 @@ def build_ui(service: Unstuck) -> gr.Blocks:
             row = next((row for row in rows if row["step_id"] == step_id), None)
             if row is None:
                 persist(task, rows)
-                return rows, readout(), summary_html(rows), patterns()
+                return rows, readout(), completion_html(rows) + summary_html(rows), patterns()
             actual = finish_minutes(minutes, row.get("started_at"), time.time())
             if actual is None:
                 gr.Warning("Press Start first or enter minutes.")
                 persist(task, rows)
-                return rows, readout(), summary_html(rows), patterns()
+                return rows, readout(), completion_html(rows) + summary_html(rows), patterns()
             service.log_actual(step_id, actual)
             rows = [
                 {**row, "logged": True, "actual_minutes": actual, "started_at": None}
@@ -377,7 +414,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
             ]
             rows = recalibrated(rows)
             persist(task, rows)
-            return rows, readout(), summary_html(rows), patterns()
+            return rows, readout(), completion_html(rows) + summary_html(rows), patterns()
 
         return handler
 
@@ -394,7 +431,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                 for row in rows
             ]
             persist(task, rows)
-            return rows, readout(), summary_html(rows), patterns()
+            return rows, readout(), completion_html(rows) + summary_html(rows), patterns()
 
         return handler
 
@@ -411,7 +448,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                 for row in rows
             ]
             persist(task, rows)
-            return rows, readout(), summary_html(rows), patterns()
+            return rows, readout(), completion_html(rows) + summary_html(rows), patterns()
 
         return handler
 
@@ -424,7 +461,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
             if len(rows) >= 16:
                 gr.Warning("That's plenty of steps — try starting the first tiny one")
                 persist(task, rows)
-                return rows, readout(), summary_html(rows), patterns()
+                return rows, readout(), completion_html(rows) + summary_html(rows), patterns()
 
             step_text = next(
                 (str(row["text"]) for row in rows if row["step_id"] == step_id),
@@ -432,7 +469,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
             )
             if step_text is None:
                 persist(task, rows)
-                return rows, readout(), summary_html(rows), patterns()
+                return rows, readout(), completion_html(rows) + summary_html(rows), patterns()
 
             try:
                 new_rows = view_rows(service.breakdown(step_text))
@@ -442,11 +479,11 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                     "Try again in a minute."
                 )
                 persist(task, rows)
-                return rows, readout(), summary_html(rows), patterns()
+                return rows, readout(), completion_html(rows) + summary_html(rows), patterns()
 
             spliced = splice_rows(rows, step_id, new_rows)
             persist(task, spliced)
-            return spliced, readout(), summary_html(spliced), patterns()
+            return spliced, readout(), completion_html(spliced) + summary_html(spliced), patterns()
 
         return handler
 
@@ -471,7 +508,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
         except (OSError, TypeError, ValueError):
             gr.Warning("That file doesn't look like an Unstuck export.")
             persist(task, rows)
-            return rows, readout(), summary_html(rows), patterns()
+            return rows, readout(), completion_html(rows) + summary_html(rows), patterns()
 
         updated_rows = recalibrated(rows)
         status_html = f'<div class="summary">{status}</div>'
@@ -479,7 +516,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
         return (
             updated_rows,
             readout() + status_html,
-            summary_html(updated_rows),
+            completion_html(updated_rows) + summary_html(updated_rows),
             patterns(),
         )
 
