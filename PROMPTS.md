@@ -1049,3 +1049,69 @@ Touch ONLY: app.py and tests/test_app_smoke.py. TDD: failing tests first. Do NOT
    "feat(ui): edit any step's text + add your own steps"
    staging only app.py tests/test_app_smoke.py.
 ```
+
+## Task 28 — Quota-resilient backend: GPU→serverless fallback + tunable temperature
+
+> Added 2026-06-11: live smoke test showed anonymous ZeroGPU quota is ZERO right now — an
+> anonymous judge gets the "busy" message and never sees a plan. The hybrid seam already
+> exists; make the failover automatic inside generate(). Also expose decoding temperature as
+> an env knob (default stays greedy) so a later eval can decide whether mild sampling is safe.
+
+```
+Touch ONLY: src/unstuck/backend.py, tests/test_backend.py. TDD: failing tests first.
+Do NOT run git.
+
+1. Module-level pure factory in backend.py (defined BEFORE the BACKEND if/elif chain so it
+   imports without torch/spaces):
+     def with_fallback(primary, fallback):
+         """Return generate() that tries primary, then fallback on any exception."""
+   Behaviour: call primary(prompt); on Exception call fallback(prompt) and return its value;
+   if the fallback ALSO raises, let the fallback's exception propagate. When primary
+   succeeds, fallback must not be called.
+2. Temperature knob: TEMPERATURE = float(os.environ.get("UNSTUCK_TEMPERATURE", "0")).
+   - zerogpu branch: if TEMPERATURE > 0 pass do_sample=True, temperature=TEMPERATURE to
+     model.generate; else keep do_sample=False (no temperature kwarg).
+   - hf_inference + nebius branches: pass temperature=TEMPERATURE instead of the literal 0.
+3. zerogpu branch wiring: keep the @spaces.GPU function but bind it to a name like
+   _gpu_generate. After it, build the serverless fallback ONLY when os.environ.get("HF_TOKEN")
+   is set: a lazily-initialised InferenceClient(MODEL_ID, token=...) (import huggingface_hub
+   inside the fallback function so the zerogpu branch keeps zero extra import cost) calling
+   chat_completion(messages=[{"role":"user","content":prompt}], max_tokens=512,
+   temperature=TEMPERATURE) and returning message.content as str.
+     generate = with_fallback(_gpu_generate, _serverless_fallback) if HF_TOKEN else _gpu_generate
+4. Tests (reload_backend pattern already in the file; no GPU needed):
+   - with_fallback: primary ok -> fallback not called; primary raises -> fallback result
+     returned; both raise -> the fallback's exception type propagates. Use plain fakes —
+     test with_fallback directly, no backend reload required.
+   - nebius branch respects UNSTUCK_TEMPERATURE=0.7 (chat_completion kwargs show 0.7) and
+     defaults to 0 when unset (existing test keeps passing).
+   - hf_inference branch: temperature flows through the same way (fake huggingface_hub).
+5. Run: python -m pytest -q — full suite green (133 baseline; sandbox cannot run the gradio
+   launch tests — run the rest and say so; the reviewer runs the full suite).
+6. (Commit handled by reviewer.) Intended message:
+   "feat(backend): automatic ZeroGPU→serverless fallback + UNSTUCK_TEMPERATURE knob"
+   staging only the two named files.
+```
+
+## Task 29 — Accessible labels + sane default for the add-your-own-step row
+
+> Added 2026-06-11: the a11y tree announces the manual-step inputs as literal "Textbox" and
+> "Number", and the Number starts at an invalid empty/0 state (minimum=1). Screen readers and
+> the polish-conscious judge both lose.
+
+```
+Touch ONLY: app.py, tests/test_app_smoke.py. TDD: failing tests first. Do NOT run git.
+
+1. In the manual-step gr.Row in build_ui:
+   - manual_text: add label="Your own step" (keep show_label=False and the placeholder) so
+     the accessible name is meaningful without changing the visuals.
+   - manual_minutes: add label="Minutes" (keep show_label=False, placeholder, minimum=1,
+     precision=0) and set value=5 so the control starts valid.
+2. Tests in test_app_smoke.py: build the ui (existing pattern), walk ui.blocks.values() and
+   assert (a) a Textbox with label "Your own step" exists, (b) a Number with label "Minutes"
+   and value 5 exists.
+3. Run: python -m pytest -q (minus launch tests if the sandbox blocks sockets — say so).
+4. (Commit handled by reviewer.) Intended message:
+   "fix(ui): accessible labels + default minutes for the manual-step row"
+   staging only the two named files.
+```
