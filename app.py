@@ -194,6 +194,17 @@ def restore_snapshot(
     return rows, readout(), summary, patterns, gr.update(value=saved_task)
 
 
+def new_plan(
+    store: Any, patterns: Callable[[], str]
+) -> tuple[list[dict[str, Any]], str, str, str, Any]:
+    """Clear the visible plan and forget the saved snapshot."""
+    try:
+        store.clear_plan()
+    except Exception:
+        pass
+    return [], "", "", patterns(), gr.update(value="")
+
+
 def plan_markdown(task: str, rows: list[dict]) -> str:
     """Return the current plan as a portable markdown checklist."""
     if not rows:
@@ -462,7 +473,9 @@ def build_ui(service: Unstuck) -> gr.Blocks:
             placeholder="Paste the overwhelming thing here",
             lines=3,
         )
-        break_button = gr.Button("Break it down", variant="primary")
+        with gr.Row():
+            break_button = gr.Button("Break it down", variant="primary")
+            new_plan_button = gr.Button("New plan", variant="secondary")
         gr.Examples(
             examples=[
                 ["Clean up my inbox and reply to the important emails"],
@@ -597,6 +610,16 @@ def build_ui(service: Unstuck) -> gr.Blocks:
             break_down,
             inputs=task,
             outputs=[rows_state, readout_output, summary_output, patterns_output],
+        )
+        new_plan_button.click(
+            lambda: new_plan(service.store, patterns),
+            outputs=[
+                rows_state,
+                readout_output,
+                summary_output,
+                patterns_output,
+                task,
+            ],
         )
         task.submit(
             break_down,

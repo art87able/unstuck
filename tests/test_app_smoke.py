@@ -388,3 +388,35 @@ def test_restore_corrupted_rows_json_yields_empty_state() -> None:
     assert summary == ""
     assert patterns == ""
     assert "value" not in task_update
+
+
+def test_new_plan_clears_visible_state_and_saved_snapshot() -> None:
+    store = Store(":memory:")
+    store.save_plan("Write review", '[{"step_id": 1}]')
+
+    rows, readout, summary, patterns, task_update = app.new_plan(
+        store, lambda: "pattern html"
+    )
+
+    assert rows == []
+    assert readout == ""
+    assert summary == ""
+    assert patterns == "pattern html"
+    assert task_update["value"] == ""
+    assert store.load_plan() is None
+
+
+def test_new_plan_ignores_clear_plan_errors() -> None:
+    class BrokenStore:
+        def clear_plan(self) -> None:
+            raise RuntimeError("locked")
+
+    rows, readout, summary, patterns, task_update = app.new_plan(
+        BrokenStore(), lambda: ""
+    )
+
+    assert rows == []
+    assert readout == ""
+    assert summary == ""
+    assert patterns == ""
+    assert task_update["value"] == ""

@@ -117,6 +117,12 @@ class Store:
             return None
         return str(row["task"]), str(row["rows_json"])
 
+    def clear_plan(self) -> None:
+        """Forget the saved visible plan snapshot, if one exists."""
+        with self._lock:
+            self.conn.execute("delete from plan_snapshot where id = 1")
+            self.conn.commit()
+
     def export_json(self) -> str:
         with self._lock:
             payload = {

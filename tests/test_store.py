@@ -139,3 +139,20 @@ def test_plan_snapshot_fresh_store_returns_none() -> None:
     store = Store(":memory:")
 
     assert store.load_plan() is None
+
+
+def test_plan_snapshot_clear_removes_saved_snapshot() -> None:
+    store = Store(":memory:")
+    store.save_plan("Write review", '[{"step_id": 1}]')
+
+    store.clear_plan()
+
+    assert store.load_plan() is None
+
+
+def test_plan_snapshot_clear_on_fresh_store_does_not_raise() -> None:
+    store = Store(":memory:")
+
+    store.clear_plan()
+
+    assert store.load_plan() is None
