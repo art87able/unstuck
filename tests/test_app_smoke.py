@@ -42,6 +42,24 @@ def test_next_step_id_skips_logged_first_row() -> None:
     assert app.next_step_id(rows) == 2
 
 
+def test_next_step_id_skips_skipped_first_row() -> None:
+    rows = [
+        {"step_id": 1, "logged": False, "skipped": True},
+        {"step_id": 2, "logged": False, "skipped": False},
+    ]
+
+    assert app.next_step_id(rows) == 2
+
+
+def test_next_step_id_all_logged_or_skipped_returns_none() -> None:
+    rows = [
+        {"step_id": 1, "logged": True, "skipped": False},
+        {"step_id": 2, "logged": False, "skipped": True},
+    ]
+
+    assert app.next_step_id(rows) is None
+
+
 def test_splice_rows_replaces_middle_row_with_new_rows() -> None:
     rows = [
         {"step_id": 1, "text": "before"},
@@ -129,6 +147,39 @@ def test_summary_html_mixed_logged_rows() -> None:
     assert "32" in html
     assert "30" in html
     assert "1/2 done" in html
+
+
+def test_summary_html_skipped_rows_contribute_nothing() -> None:
+    html = app.summary_html(
+        [
+            {
+                "logged": True,
+                "skipped": False,
+                "actual_minutes": 12,
+                "calibrated_minutes": 10,
+                "raw_minutes": 15,
+            },
+            {
+                "logged": False,
+                "skipped": True,
+                "actual_minutes": None,
+                "calibrated_minutes": 20,
+                "raw_minutes": 25,
+            },
+            {
+                "logged": False,
+                "skipped": False,
+                "actual_minutes": None,
+                "calibrated_minutes": 7,
+                "raw_minutes": 8,
+            },
+        ]
+    )
+
+    assert "For you: ~19 min total" in html
+    assert "AI estimate: 23 min" in html
+    assert "1/3 done" in html
+    assert "1 skipped" in html
 
 
 def test_patterns_html_empty_records() -> None:
@@ -268,6 +319,30 @@ def test_plan_markdown_mixed_rows_golden() -> None:
         "\n"
         "Total for you: ~15 min"
     )
+
+
+def test_plan_markdown_skipped_row_golden_line() -> None:
+    rows = [
+        {
+            "text": "Open the tax folder",
+            "logged": False,
+            "skipped": True,
+            "actual_minutes": None,
+            "calibrated_minutes": 4,
+        },
+        {
+            "text": "Find the latest payslip",
+            "logged": False,
+            "skipped": False,
+            "actual_minutes": None,
+            "calibrated_minutes": 7,
+        },
+    ]
+
+    markdown = app.plan_markdown("Sort tax paperwork", rows)
+
+    assert "- [-] Open the tax folder (skipped)" in markdown
+    assert "Total for you: ~7 min" in markdown
 
 
 def test_plan_markdown_empty_rows() -> None:

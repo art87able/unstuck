@@ -50,6 +50,8 @@ CSS = """
 .step-next { border-color:#4f46e5; box-shadow:0 2px 8px rgba(79,70,229,0.18); }
 .step-next .step-num { background:#4f46e5; color:#fff; }
 .step-later { opacity:0.55; }
+.step-skipped { opacity:0.45; }
+.step-skipped .step-text { text-decoration:line-through; }
 .step-num { flex: none; width: 30px; height: 30px; border-radius: 50%;
   background: #eef2ff; color: #4f46e5; font-weight: 600; display: flex;
   align-items: center; justify-content: center; font-size: 0.9rem; }
@@ -60,6 +62,7 @@ CSS = """
 .chip-you { background: #eef2ff; color: #4338ca; font-weight: 600; }
 .chip-done { background: #ecfdf5; color: #047857; font-weight: 600; }
 .chip-timer { background: #fef3c7; color: #b45309; font-weight: 600; }
+.chip-skip { background:#f5f5f4; color:#a8a29e; }
 .step-row { align-items: center !important; gap: 10px !important; margin-bottom: 10px; }
 .step-row .step-card { flex: 1; }
 .took-input input { border-radius: 10px !important; }
@@ -92,9 +95,9 @@ def finish_minutes(
 
 
 def next_step_id(rows: list[dict]) -> int | None:
-    """Return the first unlogged step id in visible row order."""
+    """Return the first unresolved step id in visible row order."""
     for row in rows:
-        if not row["logged"]:
+        if not row["logged"] and not row.get("skipped"):
             return int(row["step_id"])
     return None
 
@@ -109,17 +112,21 @@ def summary_html(rows: list[dict[str, Any]]) -> str:
     if not rows:
         return ""
 
+    active_rows = [row for row in rows if not row.get("skipped")]
     total_for_you = sum(
         int(row["actual_minutes"])
         if row["logged"]
         else int(row["calibrated_minutes"])
-        for row in rows
+        for row in active_rows
     )
-    total_raw = sum(int(row["raw_minutes"]) for row in rows)
+    total_raw = sum(int(row["raw_minutes"]) for row in active_rows)
     n_done = sum(1 for row in rows if row["logged"])
+    n_skipped = sum(1 for row in rows if row.get("skipped"))
     text = f"For you: ~{total_for_you} min total · AI estimate: {total_raw} min"
     if n_done:
         text += f" · {n_done}/{len(rows)} done"
+    if n_skipped:
+        text += f" · {n_skipped} skipped"
     return f'<div class="summary">{text}</div>'
 
 
@@ -215,7 +222,9 @@ def plan_markdown(task: str, rows: list[dict]) -> str:
     total_for_you = 0
     for row in rows:
         text = str(row["text"])
-        if row["logged"]:
+        if row.get("skipped"):
+            lines.append(f"- [-] {text} (skipped)")
+        elif row["logged"]:
             actual = int(row["actual_minutes"])
             total_for_you += actual
             lines.append(f"- [x] {text} (took {actual} min)")
@@ -265,6 +274,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                 "raw_minutes": row.raw_minutes,
                 "calibrated_minutes": row.calibrated_minutes,
                 "logged": False,
+                "skipped": False,
                 "actual_minutes": None,
                 "started_at": None,
             }
@@ -275,7 +285,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
         records = service.store.get_records()
         return [
             row
-            if row["logged"]
+            if row["logged"] or row.get("skipped")
             else {
                 **row,
                 "calibrated_minutes": calibrate(
@@ -379,6 +389,23 @@ def build_ui(service: Unstuck) -> gr.Blocks:
         ) -> tuple[list[dict[str, Any]], str, str, str]:
             rows = [
                 {**row, "started_at": time.time()}
+                if row["step_id"] == step_id
+                else row
+                for row in rows
+            ]
+            persist(task, rows)
+            return rows, readout(), summary_html(rows), patterns()
+
+        return handler
+
+    def skip_step(
+        step_id: int,
+    ) -> Any:
+        def handler(
+            task: str, rows: list[dict[str, Any]]
+        ) -> tuple[list[dict[str, Any]], str, str, str]:
+            rows = [
+                {**row, "skipped": True, "started_at": None}
                 if row["step_id"] == step_id
                 else row
                 for row in rows
@@ -500,29 +527,47 @@ def build_ui(service: Unstuck) -> gr.Blocks:
             for index, row in enumerate(rows, start=1):
                 text = html_lib.escape(str(row["text"]))
                 is_spotlight = row["step_id"] == spotlight
-                if row["logged"]:
+                if row.get("skipped"):
+                    card_class = "step-card step-skipped"
+                    step_num = "–"
+                    chips = '<div class="chip chip-skip">skipped</div>'
+                elif row["logged"]:
                     card_class = "step-card"
+                    step_num = "✓"
+                    chips = (
+                        f'<div class="chip chip-raw">AI: {row["raw_minutes"]} min</div>'
+                        f'<div class="chip chip-done">took {row["actual_minutes"]} min</div>'
+                    )
                 elif is_spotlight:
                     card_class = "step-card step-next"
+                    step_num = str(index)
+                    chips = (
+                        f'<div class="chip chip-raw">AI: {row["raw_minutes"]} min</div>'
+                        f'<div class="chip chip-you">For you: '
+                        f'{row["calibrated_minutes"]} min</div>'
+                    )
                 else:
                     card_class = "step-card step-later"
+                    step_num = str(index)
+                    chips = (
+                        f'<div class="chip chip-raw">AI: {row["raw_minutes"]} min</div>'
+                        f'<div class="chip chip-you">For you: '
+                        f'{row["calibrated_minutes"]} min</div>'
+                    )
+                timer_chip = (
+                    '<div class="chip chip-timer">⏱ timing</div>'
+                    if row.get("started_at") is not None
+                    and not row["logged"]
+                    and not row.get("skipped")
+                    else ""
+                )
                 with gr.Row(elem_classes="step-row"):
                     gr.HTML(
                         f'<div class="{card_class}">'
-                        f'<div class="step-num">{"✓" if row["logged"] else index}</div>'
+                        f'<div class="step-num">{step_num}</div>'
                         f'<div class="step-text">{text}</div>'
-                        f'<div class="chip chip-raw">AI: {row["raw_minutes"]} min</div>'
-                        + (
-                            f'<div class="chip chip-done">took {row["actual_minutes"]} min</div>'
-                            if row["logged"]
-                            else f'<div class="chip chip-you">For you: '
-                            f'{row["calibrated_minutes"]} min</div>'
-                        )
-                        + (
-                            '<div class="chip chip-timer">⏱ timing</div>'
-                            if row.get("started_at") is not None and not row["logged"]
-                            else ""
-                        )
+                        + chips
+                        + timer_chip
                         + "</div>",
                         padding=False,
                     )
@@ -578,6 +623,24 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                         )
                         still_stuck.click(
                             break_down_step(int(row["step_id"])),
+                            inputs=[task, rows_state],
+                            outputs=[
+                                rows_state,
+                                readout_output,
+                                summary_output,
+                                patterns_output,
+                            ],
+                            api_visibility="private",
+                        )
+                        skip = gr.Button(
+                            "Skip",
+                            size="sm",
+                            scale=0,
+                            min_width=70,
+                            variant="secondary",
+                        )
+                        skip.click(
+                            skip_step(int(row["step_id"])),
                             inputs=[task, rows_state],
                             outputs=[
                                 rows_state,
