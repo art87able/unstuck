@@ -57,9 +57,30 @@ CSS = """
 .took-input input { border-radius: 10px !important; }
 .readout { background: #eef2ff; color: #4338ca; border-radius: 12px; padding: 12px 18px;
   font-size: 0.95rem; text-align: center; margin-top: 6px; }
+.summary { background: #f5f5f4; color: #57534e; border-radius: 12px; padding: 10px 16px;
+  font-size: 0.94rem; text-align: center; margin-top: 8px; font-weight: 600; }
 .explainer { color: #a8a29e; font-size: 0.86rem; text-align: center; margin-top: 10px; }
 footer { display: none !important; }
 """
+
+
+def summary_html(rows: list[dict[str, Any]]) -> str:
+    """Return total plan timing for the current UI rows."""
+    if not rows:
+        return ""
+
+    total_for_you = sum(
+        int(row["actual_minutes"])
+        if row["logged"]
+        else int(row["calibrated_minutes"])
+        for row in rows
+    )
+    total_raw = sum(int(row["raw_minutes"]) for row in rows)
+    n_done = sum(1 for row in rows if row["logged"])
+    text = f"For you: ~{total_for_you} min total · AI estimate: {total_raw} min"
+    if n_done:
+        text += f" · {n_done}/{len(rows)} done"
+    return f'<div class="summary">{text}</div>'
 
 
 def build_ui(service: Unstuck) -> gr.Blocks:
@@ -113,21 +134,32 @@ def build_ui(service: Unstuck) -> gr.Blocks:
             )
         return '<div class="readout">' + "<br>".join(lines) + "</div>"
 
-    def break_down(task: str) -> tuple[list[dict[str, Any]], str]:
+    def break_down(task: str) -> tuple[list[dict[str, Any]], str, str]:
         clean_task = task.strip()
         if not clean_task:
-            return [], '<div class="explainer">Enter a task to break down.</div>'
-        return view_rows(service.breakdown(clean_task)), readout()
+            return [], '<div class="explainer">Enter a task to break down.</div>', ""
+        try:
+            rows = view_rows(service.breakdown(clean_task))
+        except Exception:
+            gr.Warning("The model backend is busy. Try again in a minute.")
+            return (
+                [],
+                '<div class="explainer">The model backend is busy or out of GPU quota. '
+                "Try again in a minute. Logging in to Hugging Face raises the free "
+                "ZeroGPU quota.</div>",
+                "",
+            )
+        return rows, readout(), summary_html(rows)
 
     def log_step(
         step_id: int,
     ) -> Any:
         def handler(
             minutes: float | None, rows: list[dict[str, Any]]
-        ) -> tuple[list[dict[str, Any]], str]:
+        ) -> tuple[list[dict[str, Any]], str, str]:
             if minutes is None or minutes <= 0:
                 gr.Warning("Enter actual minutes greater than 0.")
-                return rows, readout()
+                return rows, readout(), summary_html(rows)
             actual = int(round(minutes))
             service.log_actual(step_id, actual)
             rows = [
@@ -136,7 +168,8 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                 else row
                 for row in rows
             ]
-            return recalibrated(rows), readout()
+            rows = recalibrated(rows)
+            return rows, readout(), summary_html(rows)
 
         return handler
 
@@ -176,6 +209,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
             cache_examples=False,
         )
         readout_output = gr.HTML()
+        summary_output = gr.HTML()
 
         @gr.render(inputs=rows_state)
         def render_rows(rows: list[dict[str, Any]]) -> None:
@@ -217,7 +251,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                         done.click(
                             log_step(int(row["step_id"])),
                             inputs=[minutes, rows_state],
-                            outputs=[rows_state, readout_output],
+                            outputs=[rows_state, readout_output, summary_output],
                             api_visibility="private",
                         )
             gr.HTML(
@@ -233,7 +267,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
         break_button.click(
             break_down,
             inputs=task,
-            outputs=[rows_state, readout_output],
+            outputs=[rows_state, readout_output, summary_output],
         )
         export_button.click(export_data, outputs=export_file)
 
