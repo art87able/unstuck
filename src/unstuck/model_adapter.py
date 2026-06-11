@@ -9,15 +9,15 @@ from unstuck.schema import StepValidationError, Steps, validate_steps_payload
 
 
 def _extract_json(text: str) -> object:
-    """Extract and decode the first JSON object from model output."""
-    match = re.search(r"\{.*\}", text, re.DOTALL)
-    if match is None:
-        raise StepValidationError("no JSON object found")
-
-    try:
-        return json.loads(match.group(0))
-    except json.JSONDecodeError as exc:
-        raise StepValidationError("no JSON object found") from exc
+    """Extract and decode the first complete JSON object from model output."""
+    decoder = json.JSONDecoder()
+    for match in re.finditer(r"\{", text):
+        try:
+            payload, _end = decoder.raw_decode(text, match.start())
+        except json.JSONDecodeError:
+            continue
+        return payload
+    raise StepValidationError("no JSON object found")
 
 
 class ModelAdapter:

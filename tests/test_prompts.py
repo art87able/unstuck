@@ -114,3 +114,50 @@ def test_repair_prompt_includes_granularity_rule() -> None:
     )
 
     assert GRANULARITY_RULES["tiny"] in prompt
+
+
+@pytest.mark.parametrize("granularity", ["chunky", "regular", "tiny"])
+def test_extra_example_is_valid_and_covers_creative_and_deep_work(granularity: str) -> None:
+    from unstuck.prompts import EXAMPLES_EXTRA
+
+    prompt = breakdown_prompt("Write the project report", granularity)
+    assert EXAMPLES_EXTRA[granularity] in prompt
+
+    match = re.search(r"(\{\"steps\":.*\})", EXAMPLES_EXTRA[granularity])
+    assert match is not None
+    parsed = validate_steps_payload(json.loads(match.group(1)))
+
+    categories = {step.category for step in parsed.steps}
+    assert "creative" in categories
+    assert "deep-work" in categories
+    assert all(step.est_minutes <= 25 for step in parsed.steps)
+
+
+def test_tiny_extra_example_respects_tiny_rules() -> None:
+    from unstuck.prompts import EXAMPLES_EXTRA
+
+    match = re.search(r"(\{\"steps\":.*\})", EXAMPLES_EXTRA["tiny"])
+    assert match is not None
+    parsed = validate_steps_payload(json.loads(match.group(1)))
+
+    assert 5 <= len(parsed.steps) <= 10
+    assert parsed.steps[0].est_minutes <= 2
+    assert all(step.est_minutes <= 10 for step in parsed.steps)
+
+
+def test_repair_prompt_includes_example_and_truncates_long_bad_output() -> None:
+    from unstuck.prompts import EXAMPLES, MAX_BAD_OUTPUT_CHARS
+
+    long_bad = "x" * (MAX_BAD_OUTPUT_CHARS + 500)
+    prompt = repair_prompt("Submit the grant application", long_bad, "no JSON object found", "tiny")
+
+    assert EXAMPLES["tiny"] in prompt
+    assert "...[truncated]" in prompt
+    assert long_bad not in prompt
+
+
+def test_chunky_prompt_does_not_demand_five_minute_starter() -> None:
+    prompt = breakdown_prompt("Write the project report", "chunky")
+
+    assert "5 minutes or less" not in prompt
+    assert "easiest" in prompt

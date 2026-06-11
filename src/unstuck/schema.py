@@ -16,6 +16,9 @@ _VAGUE_STARTERS = (
     "start working",
     "do the work",
     "make progress",
+    "figure out",
+    "look into",
+    "get ready to",
 )
 
 

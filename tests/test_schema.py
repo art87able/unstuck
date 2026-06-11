@@ -163,3 +163,18 @@ def test_repair_prompt_includes_bad_output_and_error() -> None:
 
     assert "GARBLED{" in prompt
     assert "no JSON object found" in prompt
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Figure out the budget",
+        "Look into flight options",
+        "Get ready to write the report",
+    ],
+)
+def test_new_vague_starters_rejected(text: str) -> None:
+    with pytest.raises(StepValidationError, match="vague"):
+        validate_steps_payload(
+            {"steps": [{"text": text, "category": "admin", "est_minutes": 5}]}
+        )

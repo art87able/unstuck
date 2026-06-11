@@ -27,14 +27,22 @@ if BACKEND == "zerogpu":
         torch_dtype="auto",
     ).to("cuda")
 
+    # Prefill the assistant turn with the JSON opening so the model can only
+    # continue the object — no preamble, no markdown fence.
+    JSON_PREFILL = '{"steps":['
+
     @spaces.GPU(duration=30)
     def generate(prompt: str) -> str:
         """Generate text on the Space GPU and return decoded new tokens only."""
-        inputs = tokenizer.apply_chat_template(
+        text = tokenizer.apply_chat_template(
             [{"role": "user", "content": prompt}],
             add_generation_prompt=True,
+            tokenize=False,
+        )
+        inputs = tokenizer(
+            text + JSON_PREFILL,
             return_tensors="pt",
-            return_dict=True,
+            add_special_tokens=False,
         ).to(model.device)
 
         with torch.no_grad():
@@ -45,7 +53,8 @@ if BACKEND == "zerogpu":
             )
 
         generated_ids = output_ids[0][inputs["input_ids"].shape[-1] :]
-        return str(tokenizer.decode(generated_ids, skip_special_tokens=True))
+        decoded = str(tokenizer.decode(generated_ids, skip_special_tokens=True))
+        return JSON_PREFILL + decoded
 
 elif BACKEND == "hf_inference":
     from huggingface_hub import InferenceClient

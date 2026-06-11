@@ -49,6 +49,15 @@ validates the payload (step list non-empty, category in enum, `0 < est_minutes â
 failure sends exactly one repair prompt containing the validation error. One retry caught
 essentially everything in testing; unbounded retry loops are where token budgets go to die.
 
+Three refinements that compounded later: **prefill the assistant turn** with `{"steps":[` on the
+local-weights backend, so the model physically cannot open with prose or a markdown fence â€” it
+can only continue the JSON object. Extract with `json.JSONDecoder.raw_decode` scanning from each
+`{` instead of a greedy `\{.*\}` regex: the regex silently fails the moment the model appends a
+trailing sentence containing a brace, which is exactly the failure mode prose-y small models
+produce. And few-shot examples need to *cover the label space*: with a single cleaning-task
+example the model almost never used the `creative` or `deep-work` categories; a second example
+from a different domain fixed the distribution.
+
 ### 3. ZeroGPU has a shape, and fighting it costs you a deploy each time
 
 Three production bugs, all found via the Space run logs, none caught by the (CPU-only) test

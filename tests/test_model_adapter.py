@@ -85,3 +85,30 @@ def test_repair_prompt_keeps_granularity() -> None:
     assert len(prompts) == 2
     assert GRANULARITY_RULES["tiny"] in prompts[0]
     assert GRANULARITY_RULES["tiny"] in prompts[1]
+
+
+def test_extracts_json_despite_trailing_prose_with_braces() -> None:
+    noisy = f"{GOOD}\nNote: adjust {{the estimates}} if needed."
+    adapter = ModelAdapter(make([noisy]))
+
+    steps = adapter.breakdown("write review")
+
+    assert steps.steps[0].text == "Open the doc"
+
+
+def test_extracts_json_when_output_starts_mid_prefill_style() -> None:
+    prefixed = f"{GOOD} and that is all"
+    adapter = ModelAdapter(make([prefixed]))
+
+    steps = adapter.breakdown("write review")
+
+    assert steps.steps[0].est_minutes == 5
+
+
+def test_skips_invalid_brace_blob_before_real_json() -> None:
+    noisy = "{oops not json} " + GOOD
+    adapter = ModelAdapter(make([noisy]))
+
+    steps = adapter.breakdown("write review")
+
+    assert steps.steps[0].category == "admin"
