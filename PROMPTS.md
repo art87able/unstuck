@@ -490,3 +490,42 @@ keep all of that working.
    "feat(ui): per-step re-breakdown via Still stuck? button"
    staging only app.py tests/test_app_smoke.py.
 ```
+
+## Task 13 — Nebius serverless backend (third branch of the hybrid seam)
+
+> Added 2026-06-11: entry path for the Nebius Serverless AI Builders Challenge (deadline
+> 2026-06-30). Same `generate(prompt) -> str` contract; no new dependencies — Nebius AI Studio
+> is OpenAI-compatible and huggingface_hub's InferenceClient accepts a base_url.
+
+```
+Touch ONLY: src/unstuck/backend.py and tests/test_backend.py (new). TDD: failing tests first.
+Do NOT modify any other file. Do NOT run git.
+
+1. Tests in tests/test_backend.py. backend.py selects its branch from env at import time, so
+   each test must set env vars with monkeypatch BEFORE importing/reloading the module
+   (importlib.reload). Do NOT let any test import torch, spaces, or hit the network:
+   - With UNSTUCK_BACKEND=nebius and NEBIUS_API_KEY=dummy: monkeypatch
+     huggingface_hub.InferenceClient with a fake class that records its constructor kwargs and
+     whose chat_completion returns a canned object shaped like the real response
+     (choices[0].message.content == "ok"). Assert: backend.generate("hi") == "ok"; the fake
+     received base_url == backend.NEBIUS_BASE_URL and api_key == "dummy"; chat_completion was
+     called with temperature=0 and max_tokens=512 and the prompt in the messages.
+   - With UNSTUCK_BACKEND=nebius and NEBIUS_API_KEY unset: importing/reloading backend raises
+     a clear error mentioning NEBIUS_API_KEY.
+   - With UNSTUCK_BACKEND=bogus: reload raises ValueError mentioning "bogus".
+2. Run: python -m pytest tests/test_backend.py -q — expect FAIL.
+3. Implement in src/unstuck/backend.py:
+   - Module constants: NEBIUS_BASE_URL = os.environ.get("NEBIUS_BASE_URL",
+     "https://api.studio.nebius.com/v1/") and NEBIUS_MODEL = os.environ.get("NEBIUS_MODEL",
+     MODEL_ID).
+   - New elif BACKEND == "nebius" branch (keep zerogpu and hf_inference exactly as-is):
+     read NEBIUS_API_KEY from env, raise RuntimeError("NEBIUS_API_KEY is required for the
+     nebius backend") if missing; client = InferenceClient(base_url=NEBIUS_BASE_URL,
+     api_key=key); generate(prompt) mirrors the hf_inference branch (model=NEBIUS_MODEL passed
+     to chat_completion, max_tokens=512, temperature=0, returns str of the message content).
+   - Import huggingface_hub inside the branch (heavy imports stay lazy, same as the others).
+4. Run: python -m pytest -q — FULL suite green (34 existing + the new ones).
+5. (Commit handled by reviewer.) Intended message:
+   "feat(backend): nebius serverless branch (UNSTUCK_BACKEND=nebius)"
+   staging only src/unstuck/backend.py tests/test_backend.py.
+```
