@@ -31,6 +31,14 @@ Ideas and checks for later stages. Not commitments.
   rejects vague/duplicate/rambling steps (each rejection drives the repair retry);
   granularity-matched few-shot examples; Undo reverses Done/Skip incl. the calibration
   record; edit any step + add your own; suite 121 green)*.
+- [x] **Wave 10 — model-layer reliability** *(done 2026-06-11, `490b521`: JSON prefill on the
+  ZeroGPU backend (assistant turn starts `{"steps":[` — no prose/fence possible);
+  `raw_decode`-scan JSON extraction (greedy regex died on trailing prose with braces);
+  second few-shot example per granularity so creative/deep-work categories appear;
+  granularity-aware first-step rule (chunky's contradictory 5-min starter demand removed);
+  repair prompt carries the example + truncates rambling output; 3 new vague-starter gates;
+  suite 133 green. **Needs a live Space smoke test after upload** — the prefill path only
+  runs on GPU)*.
 - [x] **Competitor scan (2026-06-11).** 100+ entries in the org. Closest: NeuroBait (ADHD
   *chatbot* companion, gemma-12B LoRA, 4 likes) — different lane (conversation vs structured
   tool); exam-panic-rescue (multi-model badge-maximalist). Top of field: field-guide (15♥),
