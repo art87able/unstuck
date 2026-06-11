@@ -5,7 +5,7 @@ import re
 
 import pytest
 
-from unstuck.prompts import GRANULARITY_RULES, breakdown_prompt, repair_prompt
+from unstuck.prompts import EXAMPLES, GRANULARITY_RULES, breakdown_prompt, repair_prompt
 from unstuck.schema import CATEGORIES, validate_steps_payload
 
 
@@ -36,6 +36,36 @@ def test_breakdown_prompt_example_is_valid_multi_step_payload() -> None:
     assert len({step.category for step in parsed.steps}) > 1
     assert all(step.est_minutes <= 25 for step in parsed.steps)
     assert parsed.steps[0].est_minutes <= 5
+
+
+def test_regular_breakdown_prompt_keeps_current_example_text() -> None:
+    prompt = breakdown_prompt("Clean my apartment before a friend visits tonight", "regular")
+
+    assert EXAMPLES["regular"] in prompt
+    assert (
+        EXAMPLES["regular"]
+        == 'Example: Task "Clean my apartment before a friend visits tonight" -> '
+        '{"steps":[{"text":"Open a trash bag and collect visible rubbish","category":"admin","est_minutes":5},{"text":"Carry rubbish to the outside bin","category":"errand","est_minutes":5},{"text":"Clear dishes into the sink","category":"admin","est_minutes":8},{"text":"Wipe kitchen counters and bathroom sink","category":"admin","est_minutes":12}]}'
+    )
+
+
+def test_tiny_breakdown_prompt_uses_tiny_example_with_two_minute_starter() -> None:
+    prompt = breakdown_prompt("Clean my apartment before a friend visits tonight", "tiny")
+    parsed = validate_steps_payload(_example_payload(prompt))
+
+    assert "Stand up and grab an empty trash bag" in prompt
+    assert parsed.steps[0].est_minutes == 2
+    assert len(parsed.steps) == 6
+    assert all(step.est_minutes <= 10 for step in parsed.steps)
+
+
+def test_chunky_breakdown_prompt_uses_chunky_example_with_twenty_five_minutes() -> None:
+    prompt = breakdown_prompt("Clean my apartment before a friend visits tonight", "chunky")
+    parsed = validate_steps_payload(_example_payload(prompt))
+
+    assert '"est_minutes":25' in prompt
+    assert len(parsed.steps) == 3
+    assert all(15 <= step.est_minutes <= 25 for step in parsed.steps)
 
 
 def test_breakdown_prompt_mentions_tiny_first_step() -> None:

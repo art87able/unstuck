@@ -14,6 +14,21 @@ GRANULARITY_RULES = {
     ),
 }
 
+EXAMPLES = {
+    "regular": (
+        'Example: Task "Clean my apartment before a friend visits tonight" -> '
+        '{"steps":[{"text":"Open a trash bag and collect visible rubbish","category":"admin","est_minutes":5},{"text":"Carry rubbish to the outside bin","category":"errand","est_minutes":5},{"text":"Clear dishes into the sink","category":"admin","est_minutes":8},{"text":"Wipe kitchen counters and bathroom sink","category":"admin","est_minutes":12}]}'
+    ),
+    "tiny": (
+        'Example: Task "Clean my apartment before a friend visits tonight" -> '
+        '{"steps":[{"text":"Stand up and grab an empty trash bag","category":"admin","est_minutes":2},{"text":"Collect visible rubbish from one room","category":"admin","est_minutes":6},{"text":"Carry the trash bag to the outside bin","category":"errand","est_minutes":5},{"text":"Move dirty dishes into the sink","category":"admin","est_minutes":5},{"text":"Wipe the kitchen counter","category":"admin","est_minutes":7},{"text":"Wipe the bathroom sink","category":"admin","est_minutes":6}]}'
+    ),
+    "chunky": (
+        'Example: Task "Clean my apartment before a friend visits tonight" -> '
+        '{"steps":[{"text":"Collect rubbish and carry it to the outside bin","category":"errand","est_minutes":15},{"text":"Clear dishes and wipe kitchen surfaces","category":"admin","est_minutes":20},{"text":"Reset bathroom and main room surfaces","category":"admin","est_minutes":25}]}'
+    ),
+}
+
 
 def _system_block(granularity: str) -> str:
     try:
@@ -40,11 +55,7 @@ Return ONLY a JSON object with this exact schema and no prose or markdown fence:
 
 def breakdown_prompt(task: str, granularity: str = "regular") -> str:
     """Build the first-pass prompt for breaking one task into validated step JSON."""
-    example = (
-        'Example: Task "Clean my apartment before a friend visits tonight" -> '
-        '{"steps":[{"text":"Open a trash bag and collect visible rubbish","category":"admin","est_minutes":5},{"text":"Carry rubbish to the outside bin","category":"errand","est_minutes":5},{"text":"Clear dishes into the sink","category":"admin","est_minutes":8},{"text":"Wipe kitchen counters and bathroom sink","category":"admin","est_minutes":12}]}'
-    )
-    return f'{_system_block(granularity)}\n\n{example}\n\nTask: "{task}"'
+    return f'{_system_block(granularity)}\n\n{EXAMPLES[granularity]}\n\nTask: "{task}"'
 
 
 def repair_prompt(
