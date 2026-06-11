@@ -1,0 +1,21 @@
+app.py
+  s_a30ca8e2e3f4ba::t_1a2104e6bbff6f 86-100,191-221,303-312
+tests/test_app_smoke.py
+  s_a30ca8e2e3f4ba::t_7449b253d3d29a 12-39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "f37c4e5cca598f1a16216763f8d4ce67be115dfa",
+  "prompts": {},
+  "sessions": {
+    "s_a30ca8e2e3f4ba": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eb590-085f-7663-b893-4342e37880b6",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Artur Arapov <art87able@gmail.com>"
+    }
+  }
+}
