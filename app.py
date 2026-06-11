@@ -96,6 +96,29 @@ def summary_html(rows: list[dict[str, Any]]) -> str:
     return f'<div class="summary">{text}</div>'
 
 
+def plan_markdown(task: str, rows: list[dict]) -> str:
+    """Return the current plan as a portable markdown checklist."""
+    if not rows:
+        return ""
+
+    title = task.strip() or "My plan"
+    lines = [f"## {title}", ""]
+    total_for_you = 0
+    for row in rows:
+        text = str(row["text"])
+        if row["logged"]:
+            actual = int(row["actual_minutes"])
+            total_for_you += actual
+            lines.append(f"- [x] {text} (took {actual} min)")
+        else:
+            calibrated = int(row["calibrated_minutes"])
+            total_for_you += calibrated
+            lines.append(f"- [ ] {text} (~{calibrated} min)")
+
+    lines.extend(["", f"Total for you: ~{total_for_you} min"])
+    return "\n".join(lines)
+
+
 def splice_rows(
     rows: list[dict[str, Any]], step_id: int, new_rows: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
@@ -288,6 +311,10 @@ def build_ui(service: Unstuck) -> gr.Blocks:
         status_html = f'<div class="summary">{status}</div>'
         return updated_rows, readout() + status_html, summary_html(updated_rows)
 
+    def copy_checklist(task: str, rows: list[dict[str, Any]]) -> Any:
+        markdown = plan_markdown(task, rows)
+        return gr.update(value=markdown, visible=bool(markdown))
+
     with gr.Blocks(title="Unstuck") as ui:
         gr.HTML(
             '<div id="hero"><h1>Unstuck</h1>'
@@ -401,9 +428,18 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                 "Import my data (JSON)",
                 file_types=[".json"],
             )
+            copy_button = gr.Button("Copy as checklist")
         export_file = gr.File(label="Download", interactive=False)
+        checklist_output = gr.Textbox(
+            label="Checklist", lines=8, visible=False, buttons=["copy"]
+        )
 
         break_button.click(
+            break_down,
+            inputs=task,
+            outputs=[rows_state, readout_output, summary_output],
+        )
+        task.submit(
             break_down,
             inputs=task,
             outputs=[rows_state, readout_output, summary_output],
@@ -413,6 +449,11 @@ def build_ui(service: Unstuck) -> gr.Blocks:
             import_data,
             inputs=[import_button, rows_state],
             outputs=[rows_state, readout_output, summary_output],
+        )
+        copy_button.click(
+            copy_checklist,
+            inputs=[task, rows_state],
+            outputs=checklist_output,
         )
 
     return ui

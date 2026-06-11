@@ -100,6 +100,45 @@ def test_summary_html_mixed_logged_rows() -> None:
     assert "1/2 done" in html
 
 
+def test_plan_markdown_mixed_rows_golden() -> None:
+    rows = [
+        {
+            "text": "Open the tax folder",
+            "logged": True,
+            "actual_minutes": 3,
+            "calibrated_minutes": 4,
+        },
+        {
+            "text": "Find the latest payslip",
+            "logged": False,
+            "actual_minutes": None,
+            "calibrated_minutes": 7,
+        },
+        {
+            "text": "Email accountant",
+            "logged": True,
+            "actual_minutes": 5,
+            "calibrated_minutes": 8,
+        },
+    ]
+
+    markdown = app.plan_markdown("  Sort tax paperwork  ", rows)
+
+    assert markdown == (
+        "## Sort tax paperwork\n"
+        "\n"
+        "- [x] Open the tax folder (took 3 min)\n"
+        "- [ ] Find the latest payslip (~7 min)\n"
+        "- [x] Email accountant (took 5 min)\n"
+        "\n"
+        "Total for you: ~15 min"
+    )
+
+
+def test_plan_markdown_empty_rows() -> None:
+    assert app.plan_markdown("Task", []) == ""
+
+
 def test_build_ui_does_not_call_backend() -> None:
     def fail(_prompt: str) -> str:
         raise RuntimeError("backend unavailable")
