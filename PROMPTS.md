@@ -940,3 +940,112 @@ tests/test_app_smoke.py. TDD: failing tests first. Do NOT run git.
    "feat(prompts,ui): step-size control — chunky/regular/tiny granularity end to end"
    staging only the eight named files.
 ```
+
+## Task 25 — Response quality: validator quality gates + granularity-matched examples
+
+> Added 2026-06-11: the schema gate is shape-only — vague/duplicate/rambling steps pass. Every
+> new rejection drives the existing repair retry, so a stricter gate = the model fixes its own
+> output in one round-trip. And the few-shot example must match the granularity it's asked for.
+
+```
+Touch ONLY: src/unstuck/schema.py, src/unstuck/prompts.py, tests/test_schema.py,
+tests/test_prompts.py. TDD: failing tests first. Do NOT run git.
+
+1. schema.py quality gates (inside validate_steps_payload/_validate_step; each raises
+   StepValidationError with the exact message shown — these messages reach the repair prompt):
+   - Normalize text first: collapse internal whitespace runs to one space, strip, drop ONE
+     trailing period (keep "..." untouched).
+   - len(steps) > 12 -> "too many steps - return at most 12"
+   - Fewer than 2 words in a step text -> "step text must be a concrete action of at least
+     two words"
+   - len(text) > 90 -> "step text too long - keep each step under 90 characters"
+   - Vague starters: if text.lower() starts with any of {"work on", "continue ", "deal with",
+     "handle ", "think about", "try to ", "start working", "do the work", "make progress"}
+     -> 'step "<text>" is vague - start with a concrete physical action'
+   - Case-insensitive duplicate texts across steps -> "steps must not repeat"
+   Tests in test_schema.py: one per gate (incl. normalization: "Open  the file." ->
+   "Open the file"; "Wait..." keeps the ellipsis) + a valid payload still passes.
+2. prompts.py: per-granularity examples. EXAMPLES = {granularity: example_string} where
+   - "regular" keeps the current apartment example unchanged.
+   - "tiny": same task, 6 steps, every est <= 10, first step 2 minutes ("Stand up and grab
+     an empty trash bag" style), categories from the enum.
+   - "chunky": same task, 3 steps, ests 15-25.
+   breakdown_prompt picks EXAMPLES[granularity]. repair_prompt unchanged (no example).
+   Tests: tiny prompt contains its 2-minute starter; chunky prompt contains a 25; regular
+   prompt unchanged vs current golden expectations (update existing tests only if they
+   reference the example text).
+3. Run: python -m pytest -q — FULL suite green (99 baseline; sandbox cannot run the two
+   gradio launch tests - run the rest and say so; the reviewer runs the full suite).
+4. (Commit handled by reviewer.) Intended message:
+   "feat(schema,prompts): quality gates + granularity-matched few-shot examples"
+   staging only the four named files.
+```
+
+## Task 26 — Undo (un-Done / un-Skip a resolved step)
+
+> Added 2026-06-11: misclicks are an ADHD reality. Done/Skip are irreversible today, and a
+> wrong Done pollutes calibration forever.
+
+```
+Touch ONLY: app.py and tests/test_app_smoke.py. TDD: failing tests first. Do NOT run git.
+
+1. When log_step logs a row, store the record's timestamp on the row:
+   {"logged": True, "actual_minutes": actual, "started_at": None, "record_at": now}
+   where now is the same time.time() value passed to make_record (capture it once).
+2. Module-level pure helpers (tested):
+   - def undo_row(rows: list[dict], step_id: int) -> list[dict]
+     Returns rows with that row reset: logged=False, skipped=False, actual_minutes=None,
+     started_at=None, record_at removed (pop). Other rows untouched. Unknown id -> rows
+     unchanged.
+   - def remove_record(records: list[dict], category: str, est_minutes: int,
+     actual_minutes: int, completed_at: float | None) -> list[dict]
+     Removes THE ONE record matching all four fields (when completed_at is None match on the
+     other three, removing the LAST match). No match -> unchanged copy.
+3. UI: resolved rows (logged or skipped) get one small "Undo" button (size="sm",
+   variant="secondary") instead of no controls. Handler:
+   - skipped row -> rows = undo_row(...); records unchanged.
+   - logged row -> records = remove_record(records, row["category"], row["raw_minutes"],
+     row["actual_minutes"], row.get("record_at")); rows = undo_row(...);
+     then rows = recalibrated(rows, records).
+   - Outputs: the usual (rows_state, readout, summary(+completion), patterns, user_data) —
+     update user_data with with_records and persist the plan.
+4. Run: python -m pytest -q (minus the launch tests if the sandbox blocks sockets — say so).
+5. (Commit handled by reviewer.) Intended message:
+   "feat(ui): Undo — reverse a mistaken Done or Skip, calibration data included"
+   staging only app.py tests/test_app_smoke.py.
+```
+
+## Task 27 — Edit a step + add your own step
+
+> Added 2026-06-11: the plan is read-only — you can't fix the model's wording or add the step
+> only you know about. Both close the "it's MY plan" gap.
+
+```
+Touch ONLY: app.py and tests/test_app_smoke.py. TDD: failing tests first. Do NOT run git.
+
+1. Module-level pure helpers (tested):
+   - def edit_row_text(rows: list[dict], step_id: int, new_text: str) -> list[dict]
+     Strips new_text; empty/whitespace -> rows unchanged; else replaces that row's "text".
+   - def add_manual_row(rows: list[dict], text: str, minutes: float | None,
+     records: list[dict]) -> list[dict]
+     Strips text; empty -> unchanged. est = int(round(minutes)) if minutes and minutes > 0
+     else 10. New row: step_id = (max existing step_ids) + 1 or 1 when empty, category
+     "admin", raw_minutes est, calibrated_minutes = calibrate(est, multiplier("admin",
+     records)), logged/skipped False, actual_minutes/started_at None. Appended at the end.
+2. UI:
+   - Edit: on the SPOTLIGHT row only, next to "Skip", an "Edit" button toggling visibility of
+     a small gr.Textbox(value=row text, show_label=False) + "Save" button rendered on a second
+     row beneath the step (simplest within @gr.render: render the textbox+Save row always for
+     the spotlight row but inside a gr.Row(visible=False) toggled by the Edit button via
+     gr.update; if toggling proves awkward in render context, render the edit row only when a
+     gr.State flag editing_step_id == row step_id — set by Edit, cleared by Save).
+     Save handler: rows = edit_row_text(rows, step_id, new_text); persist; usual outputs.
+   - Add: below the steps (above export row), gr.Textbox(placeholder="Add your own step",
+     show_label=False) + gr.Number(placeholder="min", minimum=1, precision=0) + "Add step"
+     button. Handler: add_manual_row + persist + usual outputs; clear the textbox
+     (gr.update(value="")).
+3. Run: python -m pytest -q (minus launch tests if sandbox blocks sockets — say so).
+4. (Commit handled by reviewer.) Intended message:
+   "feat(ui): edit any step's text + add your own steps"
+   staging only app.py tests/test_app_smoke.py.
+```
