@@ -83,6 +83,21 @@ def summary_html(rows: list[dict[str, Any]]) -> str:
     return f'<div class="summary">{text}</div>'
 
 
+def splice_rows(
+    rows: list[dict[str, Any]], step_id: int, new_rows: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Replace one visible step row with its freshly broken-down sub-steps."""
+    spliced: list[dict[str, Any]] = []
+    found = False
+    for row in rows:
+        if row["step_id"] == step_id:
+            spliced.extend(new_rows)
+            found = True
+        else:
+            spliced.append(row)
+    return spliced if found else rows
+
+
 def build_ui(service: Unstuck) -> gr.Blocks:
     """Build the Gradio UI around an injected Unstuck service."""
 
@@ -173,6 +188,37 @@ def build_ui(service: Unstuck) -> gr.Blocks:
 
         return handler
 
+    def break_down_step(
+        step_id: int,
+    ) -> Any:
+        def handler(
+            rows: list[dict[str, Any]]
+        ) -> tuple[list[dict[str, Any]], str, str]:
+            if len(rows) >= 16:
+                gr.Warning("That's plenty of steps — try starting the first tiny one")
+                return rows, readout(), summary_html(rows)
+
+            step_text = next(
+                (str(row["text"]) for row in rows if row["step_id"] == step_id),
+                None,
+            )
+            if step_text is None:
+                return rows, readout(), summary_html(rows)
+
+            try:
+                new_rows = view_rows(service.breakdown(step_text))
+            except Exception:
+                gr.Warning(
+                    "The model backend is busy or out of GPU quota. "
+                    "Try again in a minute."
+                )
+                return rows, readout(), summary_html(rows)
+
+            spliced = splice_rows(rows, step_id, new_rows)
+            return spliced, readout(), summary_html(spliced)
+
+        return handler
+
     def export_data() -> str:
         handle = tempfile.NamedTemporaryFile(
             mode="w",
@@ -251,6 +297,19 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                         done.click(
                             log_step(int(row["step_id"])),
                             inputs=[minutes, rows_state],
+                            outputs=[rows_state, readout_output, summary_output],
+                            api_visibility="private",
+                        )
+                        still_stuck = gr.Button(
+                            "Still stuck?",
+                            size="sm",
+                            scale=0,
+                            min_width=110,
+                            variant="secondary",
+                        )
+                        still_stuck.click(
+                            break_down_step(int(row["step_id"])),
+                            inputs=rows_state,
                             outputs=[rows_state, readout_output, summary_output],
                             api_visibility="private",
                         )

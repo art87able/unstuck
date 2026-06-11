@@ -9,6 +9,34 @@ from unstuck.service import Unstuck
 from unstuck.store import Store
 
 
+def test_splice_rows_replaces_middle_row_with_new_rows() -> None:
+    rows = [
+        {"step_id": 1, "text": "before"},
+        {"step_id": 2, "text": "replace me"},
+        {"step_id": 3, "text": "after"},
+    ]
+    new_rows = [
+        {"step_id": 20, "text": "first new"},
+        {"step_id": 21, "text": "second new"},
+    ]
+
+    spliced = app.splice_rows(rows, 2, new_rows)
+
+    assert spliced == [rows[0], new_rows[0], new_rows[1], rows[2]]
+    assert len(spliced) == 4
+
+
+def test_splice_rows_unknown_step_id_returns_rows_unchanged() -> None:
+    rows = [
+        {"step_id": 1, "text": "before"},
+        {"step_id": 2, "text": "after"},
+    ]
+
+    spliced = app.splice_rows(rows, 99, [{"step_id": 20, "text": "new"}])
+
+    assert spliced == rows
+
+
 def test_build_ui_accepts_injected_service() -> None:
     svc = Unstuck(
         generate=lambda p: '{"steps":[{"text":"x","category":"admin","est_minutes":3}]}',
