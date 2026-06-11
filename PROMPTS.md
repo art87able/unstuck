@@ -667,3 +667,80 @@ TDD: failing tests first. Do NOT run git.
    "feat(store,ui): plan snapshot — survive page reloads"
    staging only the four named files.
 ```
+
+## Task 18 — "Your patterns" stats panel (calibration history made visible)
+
+> Added 2026-06-11: the calibration data is the product's moat but it's invisible — one readout
+> sentence. A panel that shows per-category history turns "the app adjusts" into something the
+> user can see and trust (and demos well).
+
+```
+Touch ONLY: app.py and tests/test_app_smoke.py. TDD: failing tests first. Do NOT run git.
+
+1. Module-level pure helper in app.py:
+     def patterns_html(records: list[dict]) -> str
+   records are store.get_records() rows: {category, est_minutes, actual_minutes, completed_at}.
+   - Empty records -> "".
+   - One block per category (sorted alphabetically), each:
+       <div class="pattern-row"> with:
+       - <span class="pattern-cat">{category}</span>
+       - <span class="pattern-mult">~{mult:.1f}× — {verdict}</span> where mult comes from the
+         existing unstuck.calibration.multiplier(category, records) and verdict matches the
+         readout wording: mult > 1.05 -> "you underestimate these"; mult < 0.95 -> "you
+         overestimate these"; else "your gut is right".
+       - a mini bar strip of the LAST 5 records for that category (chronological by
+         completed_at): for each, a <span class="bar" style="height:{h}px" title="est {e} →
+         took {a} min"></span> where h = clamp(int(round(ratio * 14)), 4, 36) and
+         ratio = actual/est.
+       - <span class="pattern-n">{n} logged</span>
+   - Wrap everything in <div class="patterns">...</div>.
+   Tests: empty -> ""; two categories sorted; verdict strings for under/over/right cases;
+   bar heights clamped (ratio 10 -> 36px, tiny ratio -> 4px); only last 5 bars when 7 records.
+2. UI: a gr.Accordion("Your patterns", open=False) below the readout/summary area containing
+   a gr.HTML. Refresh it from every handler that already returns readout (break_down,
+   log_step, break_down_step, start_step, import_data, restore) — simplest: those handlers
+   gain a 4th output patterns_html(service.store.get_records()); update all outputs= lists
+   accordingly, including ui.load (restore_snapshot gains the extra return value).
+3. CSS: .patterns { display:flex; flex-direction:column; gap:8px; }
+   .pattern-row { display:flex; align-items:flex-end; gap:10px; background:#fff;
+     border:1px solid #eee9e2; border-radius:10px; padding:8px 14px; font-size:0.88rem; }
+   .pattern-cat { font-weight:600; color:#292524; min-width:90px; }
+   .pattern-mult { color:#4338ca; flex:1; }
+   .bar { display:inline-block; width:7px; background:#c7d2fe; border-radius:3px 3px 0 0;
+     margin-right:2px; }
+   .pattern-n { color:#a8a29e; font-size:0.8rem; }
+4. Run: python -m pytest -q — FULL suite green (54 + new).
+5. (Commit handled by reviewer.) Intended message:
+   "feat(ui): Your patterns panel — per-category calibration history"
+   staging only app.py tests/test_app_smoke.py.
+```
+
+## Task 19 — Progressive reveal (spotlight the next step)
+
+> Added 2026-06-11: ADHD-core — seeing 10 steps at once recreates the overwhelm the app exists
+> to remove. Spotlight the single next unlogged step; dim the rest (still readable/loggable).
+
+```
+Touch ONLY: app.py and tests/test_app_smoke.py. TDD: failing tests first. Do NOT run git.
+
+1. Module-level pure helper in app.py:
+     def next_step_id(rows: list[dict]) -> int | None
+   Returns the step_id of the FIRST row (list order) with not row["logged"], else None.
+   Tests: first unlogged picked; all-logged -> None; empty -> None; first row logged ->
+   second's id.
+2. render_rows: compute spotlight = next_step_id(rows) once. Per row, the step-card div class
+   becomes:
+     - "step-card step-next"  if row["step_id"] == spotlight
+     - "step-card step-later" if not row["logged"] and not spotlight row
+     - "step-card" for logged rows (unchanged).
+   Also, ONLY the spotlight row shows the full control set (Start, took-input, Done,
+   Still stuck?). Later unlogged rows render the card only — no controls (they get theirs
+   when they become the spotlight). Logged rows unchanged.
+3. CSS: .step-next { border-color:#4f46e5; box-shadow:0 2px 8px rgba(79,70,229,0.18); }
+   .step-next .step-num { background:#4f46e5; color:#fff; }
+   .step-later { opacity:0.55; }
+4. Run: python -m pytest -q — FULL suite green.
+5. (Commit handled by reviewer.) Intended message:
+   "feat(ui): progressive reveal — spotlight the next step, dim the rest"
+   staging only app.py tests/test_app_smoke.py.
+```
