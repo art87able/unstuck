@@ -406,3 +406,87 @@ or any other file.
    "feat(prompts): category definitions, starter-step rule, richer few-shot example"
    staging only src/unstuck/prompts.py tests/test_prompts.py.
 ```
+
+## Task 11 — Plan summary chip + graceful backend errors
+
+> Added 2026-06-11: demo polish. Two UI-layer improvements; the service and store stay untouched.
+
+```
+Improve ONLY the Gradio layer. Touch only: app.py and tests/test_app_smoke.py.
+Follow TDD where testable: extend the smoke test first, then implement. Do NOT modify anything
+under src/unstuck/ or any other file. Do NOT run git.
+
+1. Plan summary chip. In app.py, add a helper `summary_html(rows) -> str` at module level
+   (so tests can import it without building the UI):
+   - rows is the same list-of-dicts shape used in rows_state (keys: logged, actual_minutes,
+     calibrated_minutes, raw_minutes).
+   - Returns "" for empty rows.
+   - Otherwise returns a div with class "summary" reading like:
+     "For you: ~{total_for_you} min total · AI estimate: {total_raw} min"
+     where total_for_you sums actual_minutes for logged rows plus calibrated_minutes for
+     unlogged rows, and total_raw sums raw_minutes.
+   - If at least one row is logged, append " · {n_done}/{n} done".
+   Render it via a gr.HTML placed between the readout and the step list, updated by the same
+   events that update rows_state (break_down and every Done click). Add a matching .summary
+   CSS rule consistent with the existing calm-minimal style (similar to .readout but neutral
+   stone background, centered).
+
+2. Graceful backend errors. In break_down, wrap the service.breakdown call in try/except
+   Exception: on failure, call gr.Warning with a short friendly message and return
+   ([], <explainer div>, "") where the explainer says the model backend is busy or out of
+   GPU quota and suggests trying again in a minute (mention that logging in to Hugging Face
+   raises the free ZeroGPU quota). Never let a traceback reach the UI. Keep the existing
+   empty-input branch behaviour (adjusted for the new third output).
+
+3. Tests in tests/test_app_smoke.py (keep the existing test):
+   - summary_html([]) == ""
+   - summary_html with two unlogged rows (calibrated 10+20, raw 8+15) contains "30" and "23".
+   - summary_html with one logged row (actual 12) + one unlogged (calibrated 20, raw 15+15)
+     contains "32" and "30" and "1/2 done".
+   - build_ui still returns a gr.Blocks when given a service whose generate raises
+     RuntimeError (constructing the UI must not call the backend).
+
+4. Run: python -m pytest -q — full suite green (existing tests + new ones).
+5. (Commit handled by reviewer.) Intended message:
+   "feat(ui): plan summary chip + graceful backend-error handling"
+   staging only app.py tests/test_app_smoke.py.
+```
+
+## Task 12 — "Still stuck?" per-step re-breakdown
+
+> Added 2026-06-11: the core ADHD loop closed recursively — any step can itself be the new
+> overwhelming task. UI-layer feature reusing the existing service; src/unstuck/ stays untouched.
+
+```
+Touch only: app.py and tests/test_app_smoke.py. TDD where testable. Do NOT modify anything
+under src/unstuck/. Do NOT run git. Note: app.py already has a plan-summary chip
+(summary_html) and a 3-output break_down (rows, explainer/readout, summary) from Task 11 —
+keep all of that working.
+
+1. Module-level helper `splice_rows(rows, step_id, new_rows) -> list` in app.py:
+   - Returns a new list where the single row whose "step_id" == step_id is replaced, in
+     place, by the rows in new_rows (same dict shape). All other rows keep their order.
+   - If step_id is not present, return rows unchanged.
+
+2. UI: on every UNLOGGED step row (next to the "took (min) → Done" controls), add a small
+   secondary button "Still stuck?". Clicking it:
+   - Calls service.breakdown(<that step's text>) — this creates a new task in the store and
+     returns calibrated rows; map them through the same view-rows dict shape already used.
+   - Splices the sub-steps in place of the clicked step via splice_rows, updates rows_state,
+     the readout, and the summary chip (same outputs as the Done click).
+   - On backend failure (any Exception): gr.Warning with a short friendly message (busy /
+     out of GPU quota, try again in a minute) and return the rows UNCHANGED.
+   - Guard: if the current rows list already has 16 or more rows, warn
+     ("That's plenty of steps — try starting the first tiny one") and do nothing.
+
+3. Tests in tests/test_app_smoke.py (keep all existing tests):
+   - splice_rows replaces the middle row of three with two new rows → length 4, order
+     preserved (ids before/after intact).
+   - splice_rows with an unknown step_id returns the input list equal to itself.
+   - build_ui still returns gr.Blocks (existing tests keep passing).
+
+4. Run: python -m pytest -q — full suite green.
+5. (Commit handled by reviewer.) Intended message:
+   "feat(ui): per-step re-breakdown via Still stuck? button"
+   staging only app.py tests/test_app_smoke.py.
+```
