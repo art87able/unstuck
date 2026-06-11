@@ -27,6 +27,16 @@ Ideas and checks for later stages. Not commitments.
   ("Still stuck?" always tiny); responsive CSS ≤640px; fixed fresh-breakdown calibration to
   read browser records (regression from Task 23, launch-test guarded); demo script / social
   post / nebius writeup updated; suite 99 green)*.
+- [x] **Tasks 25–27 — quality gates, Undo, edit/add steps** *(done 2026-06-11: validator
+  rejects vague/duplicate/rambling steps (each rejection drives the repair retry);
+  granularity-matched few-shot examples; Undo reverses Done/Skip incl. the calibration
+  record; edit any step + add your own; suite 121 green)*.
+- [x] **Competitor scan (2026-06-11).** 100+ entries in the org. Closest: NeuroBait (ADHD
+  *chatbot* companion, gemma-12B LoRA, 4 likes) — different lane (conversation vs structured
+  tool); exam-panic-rescue (multi-model badge-maximalist). Top of field: field-guide (15♥),
+  her (12♥), lolaby (10♥). Action taken: README badge/track tags added (we had a bare tag
+  set; every serious entry advertises badges via tags). Unstuck at 0 likes — visibility is
+  Artur's lever (post + Discord + likes beget likes).
 - [ ] **Demo capture 2026-06-14** — ~90s video per `docs/deliverables/demo-script.md`, recorded in an HF-logged-in browser (anonymous ZeroGPU quota dies mid-demo), then post `docs/deliverables/social-post.md`. Submission deadline 2026-06-15.
 
 ## Nebius Serverless AI Builders Challenge (deadline 2026-06-30)
