@@ -15,10 +15,11 @@ Source: nebius.com/serverless-ai-builders-challenge (May 26 – Jun 30, winners 
 per valid submission, up to $2,000 top prizes; Special Award categories include **Agentic AI
 Workflows** — the Codex-driven build story fits, as does Unstuck itself).
 
-- [ ] **Task 13 — `UNSTUCK_BACKEND=nebius`.** Third branch in the hybrid backend: Nebius AI Studio's
-  OpenAI-compatible serverless inference endpoint serving the same `Qwen/Qwen3-4B-Instruct-2507`
-  (or nearest available). The `generate(prompt) -> str` seam means this is a small, test-covered
-  addition. Needs: Artur's Nebius account + API key.
+- [x] **Task 13 — `UNSTUCK_BACKEND=nebius`** *(code done 2026-06-11, `443792b`: InferenceClient
+  with `NEBIUS_BASE_URL` (default `https://api.studio.nebius.com/v1/`, env-overridable) +
+  `NEBIUS_MODEL` + required `NEBIUS_API_KEY`; 3 new mocked tests, suite 37 green)*. **Live
+  verification still needed once Artur has a Nebius account + API key** — confirm the base URL
+  and that the Qwen3-4B model id is served, then run one real `generate()`.
 - [ ] **Submission writeup** — "one app, three serving backends" is exactly the documented,
   openly-shared reference example the challenge asks for; reuse the field notes + agent-trace
   dataset + the teaching guide.
