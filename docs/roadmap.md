@@ -18,6 +18,7 @@ Ideas and checks for later stages. Not commitments.
   verdict + last-5 mini bar strip in a collapsed accordion; refreshed from every handler)*.
 - [x] **Task 19 — progressive reveal** *(done 2026-06-11: first unlogged step spotlighted with
   full controls, later steps dimmed and control-free — anti-overwhelm by construction)*.
+- [x] **Tasks 20–22 — New plan, Skip step, completion banner** *(done 2026-06-11: clear board + snapshot; skip resolves without polluting calibration; honest-stats banner; suite 77 green)*.
 - [ ] **Demo capture 2026-06-14** — ~90s video per `docs/deliverables/demo-script.md`, recorded in an HF-logged-in browser (anonymous ZeroGPU quota dies mid-demo), then post `docs/deliverables/social-post.md`. Submission deadline 2026-06-15.
 
 ## Nebius Serverless AI Builders Challenge (deadline 2026-06-30)
