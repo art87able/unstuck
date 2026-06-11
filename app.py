@@ -150,6 +150,47 @@ def undo_row(rows: list[dict], step_id: int) -> list[dict]:
     return undone
 
 
+def edit_row_text(rows: list[dict], step_id: int, new_text: str) -> list[dict]:
+    """Return rows with one step's text replaced by non-empty user wording."""
+    text = new_text.strip()
+    if not text:
+        return rows
+
+    edited = []
+    found = False
+    for row in rows:
+        if row["step_id"] == step_id:
+            edited.append({**row, "text": text})
+            found = True
+        else:
+            edited.append(row)
+    return edited if found else rows
+
+
+def add_manual_row(
+    rows: list[dict], text: str, minutes: float | None, records: list[dict]
+) -> list[dict]:
+    """Return rows with one user-authored admin step appended."""
+    clean_text = text.strip()
+    if not clean_text:
+        return rows
+
+    est = int(round(minutes)) if minutes and minutes > 0 else 10
+    next_id = max((int(row["step_id"]) for row in rows), default=0) + 1
+    row = {
+        "step_id": next_id,
+        "text": clean_text,
+        "category": "admin",
+        "raw_minutes": est,
+        "calibrated_minutes": calibrate(est, multiplier("admin", records)),
+        "logged": False,
+        "skipped": False,
+        "actual_minutes": None,
+        "started_at": None,
+    }
+    return [*rows, row]
+
+
 def remove_record(
     records: list[dict],
     category: str,
@@ -509,15 +550,17 @@ def build_ui(service: Unstuck) -> gr.Blocks:
     def persist(data: dict, task: str, rows: list[dict[str, Any]]) -> dict:
         return snapshot(data, task, rows)
 
-    def restore(data: dict) -> tuple[list[dict[str, Any]], str, str, str, Any, dict]:
+    def restore(
+        data: dict,
+    ) -> tuple[list[dict[str, Any]], str, str, str, Any, dict, None]:
         rows, readout_html, summary, patterns_html_, task_update = restore_snapshot(
             data, readout
         )
-        return rows, readout_html, summary, patterns_html_, task_update, data
+        return rows, readout_html, summary, patterns_html_, task_update, data, None
 
     def break_down(
         task: str, data: dict, granularity: str
-    ) -> tuple[list[dict[str, Any]], str, str, str, dict]:
+    ) -> tuple[list[dict[str, Any]], str, str, str, dict, None]:
         clean_task = task.strip()
         records = _records_from_data(data)
         if not clean_task:
@@ -528,6 +571,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                 "",
                 patterns(records),
                 updated,
+                None,
             )
         try:
             rows = recalibrated(
@@ -544,6 +588,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                 "",
                 patterns(records),
                 updated,
+                None,
             )
         updated = persist(data, clean_task, rows)
         return (
@@ -552,7 +597,16 @@ def build_ui(service: Unstuck) -> gr.Blocks:
             completion_html(rows) + summary_html(rows),
             patterns(records),
             updated,
+            None,
         )
+
+    def new_plan_ui(
+        data: dict,
+    ) -> tuple[list[dict[str, Any]], str, str, str, Any, dict, None]:
+        rows, readout_html, summary, patterns_html_, task_update, updated = new_plan(
+            data, patterns
+        )
+        return rows, readout_html, summary, patterns_html_, task_update, updated, None
 
     def log_step(
         step_id: int,
@@ -770,6 +824,54 @@ def build_ui(service: Unstuck) -> gr.Blocks:
 
         return handler
 
+    def edit_step(step_id: int) -> Callable[[], int]:
+        def handler() -> int:
+            return step_id
+
+        return handler
+
+    def save_step_text(
+        step_id: int,
+    ) -> Any:
+        def handler(
+            new_text: str,
+            task: str,
+            rows: list[dict[str, Any]],
+            data: dict,
+        ) -> tuple[list[dict[str, Any]], str, str, str, dict, None]:
+            records = _records_from_data(data)
+            rows = edit_row_text(rows, step_id, new_text)
+            updated = persist(data, task, rows)
+            return (
+                rows,
+                readout(records),
+                completion_html(rows) + summary_html(rows),
+                patterns(records),
+                updated,
+                None,
+            )
+
+        return handler
+
+    def add_step(
+        text: str,
+        minutes: float | None,
+        task: str,
+        rows: list[dict[str, Any]],
+        data: dict,
+    ) -> tuple[list[dict[str, Any]], str, str, str, dict, Any]:
+        records = _records_from_data(data)
+        rows = add_manual_row(rows, text, minutes, records)
+        updated = persist(data, task, rows)
+        return (
+            rows,
+            readout(records),
+            completion_html(rows) + summary_html(rows),
+            patterns(records),
+            updated,
+            gr.update(value=""),
+        )
+
     def export_data(data: dict) -> tuple[str, dict]:
         records = _records_from_data(data)
         handle = tempfile.NamedTemporaryFile(
@@ -834,6 +936,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
             placeholder="Paste the overwhelming thing here",
             lines=3,
         )
+        editing_step_id = gr.State(None)
         granularity = gr.Radio(
             choices=["chunky", "regular", "tiny"],
             value="regular",
@@ -857,8 +960,8 @@ def build_ui(service: Unstuck) -> gr.Blocks:
         with gr.Accordion("Your patterns", open=False):
             patterns_output = gr.HTML()
 
-        @gr.render(inputs=rows_state)
-        def render_rows(rows: list[dict[str, Any]]) -> None:
+        @gr.render(inputs=[rows_state, editing_step_id])
+        def render_rows(rows: list[dict[str, Any]], editing_id: int | None) -> None:
             import html as html_lib
 
             if not rows:
@@ -1014,12 +1117,68 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                             ],
                             api_visibility="private",
                         )
+                        edit = gr.Button(
+                            "Edit",
+                            size="sm",
+                            scale=0,
+                            min_width=70,
+                            variant="secondary",
+                        )
+                        edit.click(
+                            edit_step(int(row["step_id"])),
+                            outputs=editing_step_id,
+                            api_visibility="private",
+                        )
+                if is_spotlight and editing_id == row["step_id"]:
+                    with gr.Row(elem_classes="step-row"):
+                        edit_text = gr.Textbox(
+                            value=str(row["text"]),
+                            show_label=False,
+                            container=False,
+                            scale=1,
+                        )
+                        save = gr.Button(
+                            "Save",
+                            size="sm",
+                            scale=0,
+                            min_width=70,
+                            variant="primary",
+                        )
+                        save.click(
+                            save_step_text(int(row["step_id"])),
+                            inputs=[edit_text, task, rows_state, user_data],
+                            outputs=[
+                                rows_state,
+                                readout_output,
+                                summary_output,
+                                patterns_output,
+                                user_data,
+                                editing_step_id,
+                            ],
+                            api_visibility="private",
+                        )
             gr.HTML(
                 '<div class="explainer">"For you" recalibrates the AI estimate from the '
                 "actual times you log — your personal time-blindness, learned per "
                 "category. Log a step with <em>took (min) → Done</em> and watch the "
                 "remaining estimates adjust.</div>"
             )
+
+        with gr.Row():
+            manual_text = gr.Textbox(
+                placeholder="Add your own step",
+                show_label=False,
+                scale=1,
+            )
+            manual_minutes = gr.Number(
+                placeholder="min",
+                show_label=False,
+                minimum=1,
+                precision=0,
+                scale=0,
+                min_width=90,
+            )
+            add_button = gr.Button("Add step", variant="secondary", scale=0, min_width=90)
 
         with gr.Row():
             export_button = gr.Button("Export my data (JSON)")
@@ -1042,10 +1201,11 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                 summary_output,
                 patterns_output,
                 user_data,
+                editing_step_id,
             ],
         )
         new_plan_button.click(
-            lambda data: new_plan(data, patterns),
+            new_plan_ui,
             inputs=user_data,
             outputs=[
                 rows_state,
@@ -1054,6 +1214,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                 patterns_output,
                 task,
                 user_data,
+                editing_step_id,
             ],
         )
         task.submit(
@@ -1065,7 +1226,21 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                 summary_output,
                 patterns_output,
                 user_data,
+                editing_step_id,
             ],
+        )
+        add_button.click(
+            add_step,
+            inputs=[manual_text, manual_minutes, task, rows_state, user_data],
+            outputs=[
+                rows_state,
+                readout_output,
+                summary_output,
+                patterns_output,
+                user_data,
+                manual_text,
+            ],
+            api_visibility="private",
         )
         export_button.click(export_data, inputs=user_data, outputs=[export_file, user_data])
         import_button.upload(
@@ -1094,6 +1269,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                 patterns_output,
                 task,
                 user_data,
+                editing_step_id,
             ],
         )
 

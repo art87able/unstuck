@@ -89,6 +89,85 @@ def test_splice_rows_unknown_step_id_returns_rows_unchanged() -> None:
     assert spliced == rows
 
 
+def test_edit_row_text_strips_and_updates_matching_row() -> None:
+    rows = [
+        {"step_id": 1, "text": "before"},
+        {"step_id": 2, "text": "replace me", "logged": False},
+    ]
+
+    edited = app.edit_row_text(rows, 2, "  better wording  ")
+
+    assert edited == [
+        rows[0],
+        {"step_id": 2, "text": "better wording", "logged": False},
+    ]
+    assert rows[1]["text"] == "replace me"
+
+
+def test_edit_row_text_empty_text_returns_rows_unchanged() -> None:
+    rows = [{"step_id": 1, "text": "keep me"}]
+
+    assert app.edit_row_text(rows, 1, "   ") == rows
+
+
+def test_edit_row_text_unknown_step_id_returns_rows_unchanged() -> None:
+    rows = [{"step_id": 1, "text": "keep me"}]
+
+    assert app.edit_row_text(rows, 99, "new text") == rows
+
+
+def test_add_manual_row_appends_admin_step_with_next_id_and_calibration() -> None:
+    rows = [
+        {"step_id": 4, "text": "existing"},
+        {"step_id": 9, "text": "other"},
+    ]
+    records = [
+        app.make_record("admin", 5, 10, 1.0),
+        app.make_record("admin", 5, 10, 2.0),
+        app.make_record("admin", 5, 10, 3.0),
+    ]
+
+    updated = app.add_manual_row(rows, "  Email Sam  ", 7.6, records)
+
+    assert updated[:-1] == rows
+    assert updated[-1] == {
+        "step_id": 10,
+        "text": "Email Sam",
+        "category": "admin",
+        "raw_minutes": 8,
+        "calibrated_minutes": 16,
+        "logged": False,
+        "skipped": False,
+        "actual_minutes": None,
+        "started_at": None,
+    }
+    assert len(rows) == 2
+
+
+def test_add_manual_row_empty_rows_start_at_one_and_default_to_ten_minutes() -> None:
+    updated = app.add_manual_row([], "Pay bill", None, [])
+
+    assert updated == [
+        {
+            "step_id": 1,
+            "text": "Pay bill",
+            "category": "admin",
+            "raw_minutes": 10,
+            "calibrated_minutes": 10,
+            "logged": False,
+            "skipped": False,
+            "actual_minutes": None,
+            "started_at": None,
+        }
+    ]
+
+
+def test_add_manual_row_empty_text_returns_rows_unchanged() -> None:
+    rows = [{"step_id": 1, "text": "keep me"}]
+
+    assert app.add_manual_row(rows, "  ", 5, []) == rows
+
+
 def test_undo_row_resets_resolved_row_and_removes_record_timestamp() -> None:
     other = {
         "step_id": 1,
