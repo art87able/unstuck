@@ -9,14 +9,23 @@ from unstuck.schema import StepValidationError, Steps, validate_steps_payload
 
 
 def _extract_json(text: str) -> object:
-    """Extract and decode the first complete JSON object from model output."""
+    """Extract the first steps payload, falling back to the first JSON object."""
     decoder = json.JSONDecoder()
+    first_payload: object | None = None
+
     for match in re.finditer(r"\{", text):
         try:
             payload, _end = decoder.raw_decode(text, match.start())
         except json.JSONDecodeError:
             continue
-        return payload
+
+        if first_payload is None:
+            first_payload = payload
+        if isinstance(payload, dict) and "steps" in payload:
+            return payload
+
+    if first_payload is not None:
+        return first_payload
     raise StepValidationError("no JSON object found")
 
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from unstuck.model_adapter import ModelAdapter
+from unstuck.model_adapter import ModelAdapter, _extract_json
 from unstuck.prompts import GRANULARITY_RULES
 from unstuck.schema import StepValidationError
 
@@ -112,3 +112,32 @@ def test_skips_invalid_brace_blob_before_real_json() -> None:
     steps = adapter.breakdown("write review")
 
     assert steps.steps[0].category == "admin"
+
+
+def test_extract_json_returns_inner_object_when_no_steps_payload_decodes() -> None:
+    corrupted = (
+        '{"steps":[{"text":"Find the phone'
+        "'s cable and plug it in','category':'errand','est_minutes':5},"
+        '{"text":"Connect the phone via USB","category":"errand","est_minutes":10}]}'
+    )
+
+    payload = _extract_json(corrupted)
+
+    assert isinstance(payload, dict)
+    assert "steps" not in payload
+    assert payload == {
+        "text": "Connect the phone via USB",
+        "category": "errand",
+        "est_minutes": 10,
+    }
+
+
+def test_extract_json_prefers_steps_payload_after_non_steps_object() -> None:
+    output = (
+        'First try: {"text":"Connect the phone via USB","category":"errand","est_minutes":10}\n'
+        'Final: {"steps":[{"text":"Open the doc","category":"admin","est_minutes":5}]}'
+    )
+
+    payload = _extract_json(output)
+
+    assert payload == {"steps": [{"text": "Open the doc", "category": "admin", "est_minutes": 5}]}
