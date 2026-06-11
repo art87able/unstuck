@@ -1,0 +1,34 @@
+src/unstuck/model_adapter.py
+  s_b17d21fa57f4ea::t_47f312a23d0a0a 30-31,39
+app.py
+  s_b17d21fa57f4ea::t_7dbd98843deace 457,471-473,634,726-731,907,930
+tests/test_service.py
+  s_b17d21fa57f4ea::t_949d411499c25e 3,31-44
+tests/test_model_adapter.py
+  s_b17d21fa57f4ea::t_19343e83f2bb7d 6,58-87
+src/unstuck/service.py
+  s_b17d21fa57f4ea::t_4e7e8ca578d447 38-39
+src/unstuck/prompts.py
+  s_b17d21fa57f4ea::t_3793a3c2463fd5 11-14
+  s_b17d21fa57f4ea::t_d488543122495e 8-10,15-25,41,47,50-55,58
+tests/test_app_smoke.py
+  s_b17d21fa57f4ea::t_77f8c77499502f 10,680-709
+tests/test_prompts.py
+  s_b17d21fa57f4ea::t_37f49e74fe62e6 6-8,47-64,76-86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "449c767c31c72090f67af55ba4b4cd09de92709f",
+  "prompts": {},
+  "sessions": {
+    "s_b17d21fa57f4ea": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eb630-04a4-7870-b682-4c5c6ad22e23",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Artur Arapov <art87able@gmail.com>"
+    }
+  }
+}
