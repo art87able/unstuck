@@ -529,3 +529,41 @@ Do NOT modify any other file. Do NOT run git.
    "feat(backend): nebius serverless branch (UNSTUCK_BACKEND=nebius)"
    staging only src/unstuck/backend.py tests/test_backend.py.
 ```
+
+## Task 14 — Import my data (restore an exported JSON)
+
+> Added 2026-06-11: Space storage is ephemeral — a restart wipes the SQLite file, losing the
+> user's calibration history. Export already exists; this adds the matching import so users
+> own their data round-trip. Usefulness + privacy story.
+
+```
+Touch ONLY: src/unstuck/store.py, app.py, tests/test_store.py, tests/test_app_smoke.py.
+TDD: failing tests first. Do NOT run git.
+
+1. Store: add `import_json(payload: str) -> dict` to Store:
+   - Parses the JSON produced by export_json() ({"tasks":[...],"steps":[...],"records":[...]}).
+   - Validates the shape: top-level keys present and lists; every record row has category (str),
+     est_minutes (int>0), actual_minutes (int>0). On any violation raise ValueError with a
+     short reason — never partially import.
+   - Inserts ONLY the records table rows (tasks/steps are session UI state; records are what
+     calibration needs). Insert with the original category/est/actual/completed_at but fresh
+     autoincrement ids; step_id may not resolve after a wipe — store it as given.
+   - Idempotence guard: skip a row if an identical (category, est_minutes, actual_minutes,
+     completed_at) row already exists.
+   - Returns {"imported": n, "skipped": m}.
+   - Tests in tests/test_store.py: round-trip (export from one store, import into a fresh one,
+     get_records() equal); re-import → all skipped; malformed JSON and bad rows raise ValueError.
+2. UI in app.py: an "Import my data (JSON)" gr.UploadButton next to the export button.
+   Handler reads the uploaded file (utf-8), calls service.store.import_json, then returns
+   updated readout + summary (same outputs as Done clicks: rows_state untouched -> recalibrate
+   visible rows via the existing recalibrated() helper so unlogged chips refresh, plus readout
+   and summary). On ValueError or OSError: gr.Warning("That file doesn't look like an Unstuck
+   export.") and leave everything unchanged. Smoke test: module-level behaviour only — build_ui
+   still returns Blocks; plus a direct test that the import handler logic is testable if you
+   expose a module-level helper `parse_import(file_path, store) -> str` returning a short
+   status string ("Imported N records (M duplicates skipped)").
+3. Run: python -m pytest -q — FULL suite green (37 + new).
+4. (Commit handled by reviewer.) Intended message:
+   "feat(store,ui): import exported JSON to restore calibration history"
+   staging only the four named files.
+```
