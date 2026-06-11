@@ -285,6 +285,27 @@ def test_build_ui_accepts_injected_service() -> None:
     assert isinstance(ui, gr.Blocks)
 
 
+def test_build_ui_manual_step_inputs_have_accessible_labels_and_valid_default() -> None:
+    svc = Unstuck(
+        generate=lambda p: '{"steps":[{"text":"x","category":"admin","est_minutes":3}]}',
+        store=Store(":memory:"),
+    )
+
+    ui = app.build_ui(svc)
+    components = list(ui.blocks.values())
+
+    assert any(
+        isinstance(component, gr.Textbox) and component.label == "Your own step"
+        for component in components
+    )
+    assert any(
+        isinstance(component, gr.Number)
+        and component.label == "Minutes"
+        and component.value == 5
+        for component in components
+    )
+
+
 def test_summary_html_empty_rows() -> None:
     assert app.summary_html([]) == ""
 

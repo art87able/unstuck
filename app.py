@@ -1166,11 +1166,14 @@ def build_ui(service: Unstuck) -> gr.Blocks:
 
         with gr.Row():
             manual_text = gr.Textbox(
+                label="Your own step",
                 placeholder="Add your own step",
                 show_label=False,
                 scale=1,
             )
             manual_minutes = gr.Number(
+                label="Minutes",
+                value=5,
                 placeholder="min",
                 show_label=False,
                 minimum=1,
