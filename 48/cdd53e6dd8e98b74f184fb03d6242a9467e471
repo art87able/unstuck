@@ -1,0 +1,19 @@
+README.md
+  s_8e4bae34826532::t_5246d553c5cf0a 11-25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "48cdd53e6dd8e98b74f184fb03d6242a9467e471",
+  "prompts": {},
+  "sessions": {
+    "s_8e4bae34826532": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0809aeb0-fbb6-4a6c-b51a-bb28e66584db",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Artur Arapov <art87able@gmail.com>"
+    }
+  }
+}
