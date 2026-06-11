@@ -1,0 +1,25 @@
+tests/test_backend.py
+  s_cc15601ef13f02::t_cccd7e0dbec775 17-19,21-39,41-59,61-73,75,79-87,90-91,129-190
+  s_cc15601ef13f02::t_2b7af6ad10e78d 20,40,60,74,88-89
+  s_cc15601ef13f02::t_66c30171358f94 76-78
+src/unstuck/backend.py
+  s_cc15601ef13f02::t_74b10993d69ff5 3,10,20-33,52,65-75,79,86,119,138
+  s_cc15601ef13f02::t_037d2991a31971 87-107
+  s_cc15601ef13f02::t_07f55d849cd145 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "773542ba54111f2ea4766a3a0bd977bb52b2797a",
+  "prompts": {},
+  "sessions": {
+    "s_cc15601ef13f02": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eb783-2704-72d2-be85-6602c925b1e2",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Artur Arapov <art87able@gmail.com>"
+    }
+  }
+}
