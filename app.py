@@ -82,6 +82,20 @@ CSS = """
 .pattern-n { color:#a8a29e; font-size:0.8rem; }
 .explainer { color: #a8a29e; font-size: 0.86rem; text-align: center; margin-top: 10px; }
 footer { display: none !important; }
+
+@media (max-width: 640px) {
+  .gradio-container { padding: 0 10px !important; }
+  #hero h1 { font-size: 1.6rem; }
+  #hero p { font-size: 0.94rem; }
+  .step-row { flex-wrap: wrap !important; }
+  .step-row .step-card { flex: 1 1 100%; }
+  .step-card { flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
+  .step-text { flex: 1 1 calc(100% - 40px); font-size: 0.95rem; }
+  .chip { font-size: 0.78rem; padding: 2px 9px; }
+  .took-input input { font-size: 16px !important; } /* prevents iOS zoom-on-focus */
+  .pattern-row { flex-wrap: wrap; }
+  .pattern-cat { min-width: 70px; }
+}
 """
 
 
