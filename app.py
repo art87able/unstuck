@@ -468,7 +468,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                 updated,
             )
         try:
-            rows = view_rows(service.breakdown(clean_task))
+            rows = recalibrated(view_rows(service.breakdown(clean_task)), records)
         except Exception:
             gr.Warning("The model backend is busy. Try again in a minute.")
             updated = persist(data, clean_task, [])
@@ -628,7 +628,9 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                 )
 
             try:
-                new_rows = view_rows(service.breakdown(step_text))
+                new_rows = recalibrated(
+                    view_rows(service.breakdown(step_text)), records
+                )
             except Exception:
                 gr.Warning(
                     "The model backend is busy or out of GPU quota. "

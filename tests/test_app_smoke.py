@@ -641,3 +641,38 @@ def test_new_plan_clears_browser_plan_but_keeps_records() -> None:
     assert task_update["value"] == ""
     assert updated == {"records": data["records"], "plan": None}
     assert data["plan"] is not None
+
+
+def test_break_down_calibrates_from_browser_records() -> None:
+    """Regression: fresh breakdowns must calibrate from BrowserState records,
+    not the (empty) server store."""
+
+    def fake_generate(_prompt: str) -> str:
+        return json.dumps(
+            {
+                "steps": [
+                    {"text": "Open the folder", "category": "admin", "est_minutes": 10},
+                ]
+            }
+        )
+
+    service = Unstuck(generate=fake_generate, store=Store(":memory:"))
+    ui = app.build_ui(service)
+    ui.launch(prevent_thread_lock=True, server_port=7950, quiet=True)
+    try:
+        from gradio_client import Client
+
+        client = Client("http://127.0.0.1:7950", verbose=False)
+        # 3 records of admin running 2x long -> multiplier 2.0 -> 10 min becomes 20
+        records = [
+            {"category": "admin", "est_minutes": 5, "actual_minutes": 10, "completed_at": float(i)}
+            for i in range(3)
+        ]
+        res = client.predict(
+            "File my taxes", {"records": records, "plan": None}, api_name="/break_down"
+        )
+        summary = next(r for r in res if isinstance(r, str) and "summary" in r)
+        assert "~20 min total" in summary
+        assert "AI estimate: 10 min" in summary
+    finally:
+        ui.close()
