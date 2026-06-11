@@ -22,6 +22,11 @@ Ideas and checks for later stages. Not commitments.
 - [x] **Task 23 — per-user data via gr.BrowserState** *(done 2026-06-11: plans + calibration
   records moved to browser localStorage — multi-user isolation + the privacy headline; server
   SQLite keeps only task/step bookkeeping; suite 88 green, live E2E verified)*.
+- [x] **Task 24 + wave 8 — step-size control, mobile polish, calibration regression fix,
+  docs refresh** *(done 2026-06-11: chunky/regular/tiny granularity threaded UI→service→prompt
+  ("Still stuck?" always tiny); responsive CSS ≤640px; fixed fresh-breakdown calibration to
+  read browser records (regression from Task 23, launch-test guarded); demo script / social
+  post / nebius writeup updated; suite 99 green)*.
 - [ ] **Demo capture 2026-06-14** — ~90s video per `docs/deliverables/demo-script.md`, recorded in an HF-logged-in browser (anonymous ZeroGPU quota dies mid-demo), then post `docs/deliverables/social-post.md`. Submission deadline 2026-06-15.
 
 ## Nebius Serverless AI Builders Challenge (deadline 2026-06-30)
