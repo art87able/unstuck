@@ -567,3 +567,103 @@ TDD: failing tests first. Do NOT run git.
    "feat(store,ui): import exported JSON to restore calibration history"
    staging only the four named files.
 ```
+
+## Task 15 — Built-in step timer (Start → Done auto-fills minutes)
+
+> Added 2026-06-11: manually tracking minutes is the one thing time-blind users can't do —
+> the app currently asks them to do it. A Start button stamps the clock; Done computes elapsed
+> minutes automatically. Manual entry stays as an override.
+
+```
+Touch ONLY: app.py and tests/test_app_smoke.py. TDD: failing tests first. Do NOT run git.
+
+1. Module-level pure helper in app.py:
+     def finish_minutes(manual: float | None, started_at: float | None, now: float) -> int | None
+   - If manual is a number > 0: return int(round(manual)) (manual always wins).
+   - Else if started_at is set: return max(1, int(round((now - started_at) / 60.0))).
+   - Else: return None.
+   Tests (tests/test_app_smoke.py): manual wins over timer; timer path rounds and floors at 1
+   (e.g. 30s -> 1); neither set -> None; manual=0 or negative falls through to timer/None.
+2. Row dicts gain a "started_at": float | None key (None in view_rows()). Per unlogged row add
+   a "Start" button (size="sm", variant="secondary"). Its handler sets started_at=time.time()
+   for that row only and returns rows_state, readout, summary (same 3 outputs as the others).
+   When a row has started_at set, render its chip area with an extra
+   '<div class="chip chip-timer">⏱ timing</div>' and label the button "Restart".
+3. log_step handler: replace the minutes<=0 early-return with
+     actual = finish_minutes(minutes, row.get("started_at"), time.time())
+   for the clicked row; if actual is None -> gr.Warning("Press Start first or enter minutes.")
+   and return unchanged. Otherwise proceed exactly as before with actual.
+4. CSS: add .chip-timer { background: #fef3c7; color: #b45309; font-weight: 600; }.
+5. Existing tests must keep passing (splice/summary tests construct row dicts — use .get()
+   for started_at anywhere you read it so old fixtures without the key still work).
+6. Run: python -m pytest -q — FULL suite green (42 + new).
+7. (Commit handled by reviewer.) Intended message:
+   "feat(ui): built-in step timer — Start stamps, Done auto-computes minutes"
+   staging only app.py tests/test_app_smoke.py.
+```
+
+## Task 16 — Copy plan as a markdown checklist + Enter submits
+
+> Added 2026-06-11: the plan should leave the app — paste into Notes/Todoist/Obsidian.
+> Also the task box should respond to Enter.
+
+```
+Touch ONLY: app.py and tests/test_app_smoke.py. TDD: failing tests first. Do NOT run git.
+
+1. Module-level pure helper in app.py:
+     def plan_markdown(task: str, rows: list[dict]) -> str
+   - Empty rows -> "".
+   - Header line: "## {task.strip() or 'My plan'}" then a blank line.
+   - One line per row, in order: logged rows -> "- [x] {text} (took {actual_minutes} min)";
+     unlogged -> "- [ ] {text} (~{calibrated_minutes} min)".
+   - Footer line after a blank line: "Total for you: ~{N} min" using the same arithmetic as
+     summary_html (actual when logged else calibrated).
+   Tests: golden string for a 3-row mixed plan; empty rows -> "".
+2. UI: a "Copy as checklist" gr.Button next to the export/import row. Click handler takes
+   (task, rows_state) and writes plan_markdown(...) into a gr.Textbox(label="Checklist",
+   show_copy_button=True, lines=8, visible=False) — make it visible=True in the same handler
+   via gr.update when there is content, keep hidden for empty plans.
+3. task.submit(break_down, inputs=task, outputs=[rows_state, readout_output, summary_output])
+   so Enter in the task box triggers the breakdown (same handler as the button).
+4. Run: python -m pytest -q — FULL suite green.
+5. (Commit handled by reviewer.) Intended message:
+   "feat(ui): copy plan as markdown checklist + Enter submits task"
+   staging only app.py tests/test_app_smoke.py.
+```
+
+## Task 17 — Plan survives a page reload
+
+> Added 2026-06-11: a refresh currently wipes the in-progress plan — brutal mid-task. Snapshot
+> the visible rows to SQLite on every change; restore on app load.
+
+```
+Touch ONLY: src/unstuck/store.py, app.py, tests/test_store.py, tests/test_app_smoke.py.
+TDD: failing tests first. Do NOT run git.
+
+1. Store: two methods on Store:
+     def save_plan(self, task: str, rows_json: str) -> None
+     def load_plan(self) -> tuple[str, str] | None
+   - Table plan_snapshot(id INTEGER PRIMARY KEY CHECK (id = 1), task TEXT, rows_json TEXT,
+     saved_at TEXT) — a single-row upsert (INSERT ... ON CONFLICT(id) DO UPDATE).
+   - load_plan returns (task, rows_json) or None when never saved.
+   - rows_json is opaque to the store: no parsing/validation there.
+   - Tests in tests/test_store.py: save then load round-trips; second save overwrites;
+     fresh store -> None.
+2. app.py: a module-level helper
+     def snapshot(store, task: str, rows: list[dict]) -> None
+   that json.dumps rows and calls store.save_plan — swallow nothing: let errors raise in tests
+   but in handlers wrap with try/except Exception: pass (persistence must never break the UI).
+   Call it at the end of every handler that returns rows_state (break_down, log_step handler,
+   break_down_step handler, import_data, the Task 15 start handler if present).
+3. Restore on load: a restore() handler that reads store.load_plan(); if present,
+   json.loads the rows (on any error return empty state) and returns
+   (rows, readout(), summary_html(rows), gr.update(value=saved_task)).
+   Wire ui.load(restore, outputs=[rows_state, readout_output, summary_output, task]).
+4. Smoke tests: snapshot writes something load_plan returns; restore round-trips rows incl.
+   logged/started_at keys; corrupted rows_json in the table -> restore yields empty rows, no
+   exception.
+5. Run: python -m pytest -q — FULL suite green.
+6. (Commit handled by reviewer.) Intended message:
+   "feat(store,ui): plan snapshot — survive page reloads"
+   staging only the four named files.
+```
