@@ -30,3 +30,15 @@ USER RECORDS
 - Record in a browser **logged in to HF** (anonymous ZeroGPU quota dies mid-demo).
 - Seed "Your patterns" first: log 2–3 steps in a warm-up plan so calibration is visible, then "New plan" for the on-camera run.
 - Show the phone-width layout for 2 seconds if convenient (responsive CSS is in).
+
+### Optional beats (slot in if the 90s allows — added 2026-06-13)
+
+- **Calendar export** (best mid-plan, while steps remain): "And because the whole
+  problem is time-blindness — I can drop the remaining steps straight onto my
+  calendar, each block already sized to *my* calibrated time." Click **Add remaining
+  steps to calendar (.ics)**, open the downloaded file in Calendar for 2 seconds.
+- **Reload resilience** (if a step is logged): refresh the page → the
+  "↩ Restored your plan from earlier — N steps left" banner appears → "my plan
+  survives a reload, in the browser, no account."
+- **Share** (at the end, after the honest completion banner): click **Copy share
+  update** → paste the one-line brag → "and it's honest in the share text too."
