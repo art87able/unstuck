@@ -8,7 +8,7 @@ sdk_version: "6.17.3"
 python_version: "3.12.12"
 app_file: app.py
 pinned: false
-short_description: "Learns your personal time-blindness — one overwhelming task becomes tiny timed steps, and the estimates recalibrate to how long YOU actually take."
+short_description: "Tiny timed steps that learn your time-blindness"
 tags:
   - build-small-hackathon
   - backyard-ai
