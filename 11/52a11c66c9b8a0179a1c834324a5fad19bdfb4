@@ -1,0 +1,19 @@
+README.md
+  s_49db1d8855c016::t_0d0f73f3f43153 11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "1152a11c66c9b8a0179a1c834324a5fad19bdfb4",
+  "prompts": {},
+  "sessions": {
+    "s_49db1d8855c016": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "325bd343-cf0e-4b65-a577-906fc0c9264e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Artur Arapov <art87able@gmail.com>"
+    }
+  }
+}
