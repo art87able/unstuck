@@ -50,6 +50,24 @@ Ideas and checks for later stages. Not commitments.
   her (12♥), lolaby (10♥). Action taken: README badge/track tags added (we had a bare tag
   set; every serious entry advertises badges via tags). Unstuck at 0 likes — visibility is
   Artur's lever (post + Discord + likes beget likes).
+- [x] **Competitor scan #2 (2026-06-13).** Re-pulled the org by likes. New leaderboard:
+  aether-garden (20♥, agent sim/persistent-world, track:wood), field-guide (19♥), small-talk
+  (19♥, voice robot), her (18♥, companion), PITCHFIGHT_AI (15♥), lolaby (12♥). **Two findings:**
+  (1) **Tag format was wrong** — every ranking entry uses *namespaced* tags (`track:backyard`,
+  `achievement:offbrand|fieldnotes|sharing`); we had the plain-text variants (`off-brand`,
+  `field-notes`, `sharing-is-caring`) and **no `track:` tag**, so we were invisible to the badge/
+  track filters judges browse by. **Fixed**: added the canonical namespaced tags (all four
+  genuinely earned) + `short_description` leading with the calibration hook. ⚠️ **Only takes
+  effect after the Space README re-sync** (Artur's pending one-liner). (2) **Likes flow to
+  delight** (games/companions), not utility — our whole lane (NeuroBait, exam-panic-rescue, sema,
+  sokrates, ai-study-buddy) all sit at 2–4♥. So likes aren't our win condition; **badges + an
+  honest judged demo are.** Our only un-owned differentiator vs the lane is the *time-blindness
+  self-calibration* — now the headline in title/description.
+- [ ] **Open badge opportunity — `achievement:offgrid`** (her, exam-panic, sema all claim it):
+  needs a *real* local path (llama.cpp / GGUF of Qwen3-4B, no cloud). Don't fake the tag — it
+  requires a genuine on-device `generate()` backend. Candidate Wave-13 task; honest to claim only
+  once shipped. (`sponsor:openai` is arguable via the Codex build but is about submission models,
+  not dev tooling — left unclaimed to avoid badge-stuffing.)
 - [ ] **Demo capture 2026-06-14** — ~90s video per `docs/deliverables/demo-script.md`, recorded in an HF-logged-in browser (anonymous ZeroGPU quota dies mid-demo), then post `docs/deliverables/social-post.md`. Submission deadline 2026-06-15.
 
 ## Wave 12 — virality + post-deadline candidates (expanded 2026-06-13)
