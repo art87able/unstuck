@@ -1,0 +1,23 @@
+app.py
+  s_49db1d8855c016::t_432441d089d4c4 1371-1375
+  s_49db1d8855c016::t_98212eea558ba6 509-557
+  s_49db1d8855c016::t_c97de21bf727c8 10
+  s_49db1d8855c016::t_ea473ff9deee21 1006-1017
+  s_49db1d8855c016::t_79433e283d6736 1289,1291
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "53cf0424f6586611676b6c45155d294e1b0aeeda",
+  "prompts": {},
+  "sessions": {
+    "s_49db1d8855c016": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "325bd343-cf0e-4b65-a577-906fc0c9264e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Artur Arapov <art87able@gmail.com>"
+    }
+  }
+}
