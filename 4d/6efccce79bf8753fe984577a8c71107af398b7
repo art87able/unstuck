@@ -1,0 +1,19 @@
+docs/deliverables/demo-script.md
+  s_49db1d8855c016::t_c77df4e3a425a1 33-44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "4d6efccce79bf8753fe984577a8c71107af398b7",
+  "prompts": {},
+  "sessions": {
+    "s_49db1d8855c016": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "325bd343-cf0e-4b65-a577-906fc0c9264e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Artur Arapov <art87able@gmail.com>"
+    }
+  }
+}
