@@ -1,0 +1,21 @@
+README.md
+  s_49db1d8855c016::t_7e9b1aa48744e8 11,15-18,27
+docs/roadmap.md
+  s_49db1d8855c016::t_84c3dc260df3e3 53-70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "125461e255d4c15c179f70528b3770f321c2fa55",
+  "prompts": {},
+  "sessions": {
+    "s_49db1d8855c016": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "325bd343-cf0e-4b65-a577-906fc0c9264e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Artur Arapov <art87able@gmail.com>"
+    }
+  }
+}
