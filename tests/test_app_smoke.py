@@ -985,3 +985,62 @@ def test_share_text_blank_task_uses_fallback_title() -> None:
         }
     ]
     assert 'Getting unstuck: "my task"' in app.share_text("   ", rows)
+
+
+def test_plan_ics_remaining_steps_golden() -> None:
+    from datetime import datetime
+
+    rows = [
+        {
+            "step_id": 1,
+            "text": "Open the tax folder",
+            "logged": True,
+            "actual_minutes": 3,
+            "calibrated_minutes": 4,
+        },
+        {
+            "step_id": 2,
+            "text": "Find the latest payslip",
+            "logged": False,
+            "skipped": False,
+            "actual_minutes": None,
+            "calibrated_minutes": 10,
+        },
+        {
+            "step_id": 3,
+            "text": "Email accountant; ask about expenses, VAT",
+            "logged": False,
+            "skipped": False,
+            "actual_minutes": None,
+            "calibrated_minutes": 15,
+        },
+    ]
+    ics = app.plan_ics("Sort taxes", rows, datetime(2026, 6, 13, 14, 30, 0))
+    # only the two unlogged steps become events
+    assert ics.count("BEGIN:VEVENT") == 2
+    assert "\r\n" in ics  # RFC 5545 CRLF line endings
+    # first event starts at the given time, 10 min long
+    assert "DTSTART:20260613T143000" in ics
+    assert "DURATION:PT10M" in ics
+    # second event is back-to-back (14:40), 15 min, with commas/semicolons escaped
+    assert "DTSTART:20260613T144000" in ics
+    assert "DURATION:PT15M" in ics
+    assert "SUMMARY:Email accountant\; ask about expenses\\, VAT" in ics
+    assert ics.startswith("BEGIN:VCALENDAR\r\n")
+    assert ics.rstrip().endswith("END:VCALENDAR")
+
+
+def test_plan_ics_all_done_returns_empty() -> None:
+    from datetime import datetime
+
+    rows = [
+        {"step_id": 1, "text": "a", "logged": True, "actual_minutes": 5, "calibrated_minutes": 5},
+        {"step_id": 2, "text": "b", "logged": False, "skipped": True, "actual_minutes": None, "calibrated_minutes": 5},
+    ]
+    assert app.plan_ics("done plan", rows, datetime(2026, 6, 13, 9, 0, 0)) == ""
+
+
+def test_plan_ics_empty_rows_returns_empty() -> None:
+    from datetime import datetime
+
+    assert app.plan_ics("anything", [], datetime(2026, 6, 13, 9, 0, 0)) == ""

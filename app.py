@@ -7,6 +7,7 @@ import tempfile
 import time
 import html
 from collections.abc import Callable
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -505,6 +506,55 @@ def share_text(task: str, rows: list[dict]) -> str:
     return f"{line} Made with Unstuck: https://build-small-hackathon-unstuck.hf.space"
 
 
+def _ics_escape(text: str) -> str:
+    """Escape a value for an iCalendar text field (RFC 5545 §3.3.11)."""
+    return (
+        str(text)
+        .replace("\\", "\\\\")
+        .replace(";", "\\;")
+        .replace(",", "\\,")
+        .replace("\n", "\\n")
+    )
+
+
+def plan_ics(task: str, rows: list[dict], start: datetime) -> str:
+    """Return the remaining steps as an iCalendar (.ics), back-to-back from ``start``.
+
+    Only unlogged, non-skipped steps become events (the work still ahead), each
+    ``calibrated_minutes`` long. Times are *floating* (no TZID / no trailing Z) so
+    the blocks land in the importing calendar's own timezone — "block my next
+    hour" imports exactly as authored, wherever it's opened.
+    """
+    remaining = [r for r in rows if not r.get("logged") and not r.get("skipped")]
+    if not remaining:
+        return ""
+
+    title = task.strip() or "My plan"
+    stamp = start.strftime("%Y%m%dT%H%M%S")
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//Unstuck//Plan//EN",
+        "CALSCALE:GREGORIAN",
+    ]
+    cursor = start
+    for row in remaining:
+        minutes = int(row["calibrated_minutes"])
+        lines += [
+            "BEGIN:VEVENT",
+            f"UID:unstuck-{row.get('step_id', 0)}-{stamp}@unstuck.app",
+            f"DTSTAMP:{stamp}",
+            f"DTSTART:{cursor.strftime('%Y%m%dT%H%M%S')}",
+            f"DURATION:PT{minutes}M",
+            f"SUMMARY:{_ics_escape(row['text'])}",
+            f"DESCRIPTION:{_ics_escape(title)} — via Unstuck",
+            "END:VEVENT",
+        ]
+        cursor = cursor + timedelta(minutes=minutes)
+    lines.append("END:VCALENDAR")
+    return "\r\n".join(lines) + "\r\n"
+
+
 def splice_rows(
     rows: list[dict[str, Any]], step_id: int, new_rows: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
@@ -953,6 +1003,18 @@ def build_ui(service: Unstuck) -> gr.Blocks:
         text = share_text(task, rows)
         return gr.update(value=text, visible=bool(text))
 
+    def export_ics(task: str, rows: list[dict[str, Any]]) -> Any:
+        text = plan_ics(task, rows, datetime.now())
+        if not text:
+            gr.Warning("No remaining steps to put on the calendar.")
+            return gr.update(visible=False)
+        handle = tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", suffix=".ics", prefix="unstuck-plan-", delete=False
+        )
+        with handle:
+            handle.write(text)
+        return gr.update(value=handle.name, visible=True)
+
     with gr.Blocks(title="Unstuck") as ui:
         gr.HTML(
             '<div id="hero"><h1>Unstuck</h1>'
@@ -1224,7 +1286,9 @@ def build_ui(service: Unstuck) -> gr.Blocks:
             )
             copy_button = gr.Button("Copy as checklist")
             share_button = gr.Button("Copy share update")
+            ics_button = gr.Button("Add remaining steps to calendar (.ics)")
         export_file = gr.File(label="Download", interactive=False)
+        ics_file = gr.File(label="Calendar (.ics)", interactive=False, visible=False)
         checklist_output = gr.Textbox(
             label="Checklist", lines=8, visible=False, buttons=["copy"]
         )
@@ -1303,6 +1367,11 @@ def build_ui(service: Unstuck) -> gr.Blocks:
             copy_share,
             inputs=[task, rows_state],
             outputs=share_output,
+        )
+        ics_button.click(
+            export_ics,
+            inputs=[task, rows_state],
+            outputs=ics_file,
         )
         ui.load(
             restore,

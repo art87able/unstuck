@@ -60,9 +60,12 @@ Ideas and checks for later stages. Not commitments.
   ~R min to go", both ending with the Space link; button beside "Copy as checklist",
   same copy-textbox pattern; 4 golden tests, suite 145 green)*. Rationale: likes are
   the visibility lever — give users a one-click way to talk about Unstuck.
-- [ ] **Task 32 — .ics export.** Turn the remaining steps into calendar blocks
-  (one VEVENT per unlogged step, calibrated lengths, back-to-back from "now") so the
-  plan lands where time-blind brains actually look. Pure-function + golden test shaped.
+- [x] **Task 32 — .ics export** *(done 2026-06-13: `plan_ics(task, rows, start)` emits a
+  VCALENDAR with one VEVENT per unlogged/non-skipped step, calibrated-minute DURATIONs,
+  back-to-back from `start`; floating local times (no TZID/Z) so blocks import in the
+  reader's own zone; RFC 5545 text escaping + CRLF; button writes a temp .ics to a
+  `gr.File`. 3 golden tests, suite 148 green)*. The plan lands where a time-blind brain
+  actually looks — closes the loop from "overwhelming task" to "blocked on my calendar".
 - [ ] **Task 33 — restored-plan banner.** On `ui.load` with a saved plan, show
   "Restored your plan from earlier — N steps left" so a returning user (or judge
   reloading) understands the state instantly.
