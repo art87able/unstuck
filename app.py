@@ -73,6 +73,8 @@ CSS = """
   padding:14px 18px; font-size:1rem; text-align:center; margin-top:10px; font-weight:600; }
 .summary { background: #f5f5f4; color: #57534e; border-radius: 12px; padding: 10px 16px;
   font-size: 0.94rem; text-align: center; margin-top: 8px; font-weight: 600; }
+.restored-banner { background:#eff6ff; color:#1d4ed8; border-radius:12px;
+  padding:10px 16px; font-size:0.92rem; text-align:center; margin-top:8px; font-weight:600; }
 .patterns { display:flex; flex-direction:column; gap:8px; }
 .pattern-row { display:flex; align-items:flex-end; gap:10px; background:#fff;
   border:1px solid #eee9e2; border-radius:10px; padding:8px 14px; font-size:0.88rem; }
@@ -433,6 +435,25 @@ def new_plan(
     return [], "", "", patterns(records), gr.update(value=""), updated
 
 
+def restored_banner_html(rows: list[dict]) -> str:
+    """Transient 'welcome back' cue, shown only when a saved plan is restored on load.
+
+    Any subsequent action recomputes the summary without it, so it self-clears
+    after the first interaction — orienting a returning user (or a judge who
+    reloaded mid-demo) without lingering.
+    """
+    if not rows:
+        return ""
+    left = sum(1 for r in rows if not r.get("logged") and not r.get("skipped"))
+    if left == 0:
+        return ""
+    steps = "step" if left == 1 else "steps"
+    return (
+        '<div class="restored-banner">&#8617; Restored your plan from earlier '
+        f"&mdash; {left} {steps} left</div>"
+    )
+
+
 def restore_snapshot(
     data: dict, readout: Callable[[list[dict[str, Any]]], str]
 ) -> tuple[list[dict[str, Any]], str, str, str, Any]:
@@ -448,7 +469,7 @@ def restore_snapshot(
     if not isinstance(saved_task, str) or not isinstance(rows, list):
         return [], readout(records), "", patterns, gr.update()
 
-    summary = completion_html(rows) + summary_html(rows)
+    summary = restored_banner_html(rows) + completion_html(rows) + summary_html(rows)
     return rows, readout(records), summary, patterns, gr.update(value=saved_task)
 
 

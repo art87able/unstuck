@@ -66,9 +66,11 @@ Ideas and checks for later stages. Not commitments.
   reader's own zone; RFC 5545 text escaping + CRLF; button writes a temp .ics to a
   `gr.File`. 3 golden tests, suite 148 green)*. The plan lands where a time-blind brain
   actually looks — closes the loop from "overwhelming task" to "blocked on my calendar".
-- [ ] **Task 33 — restored-plan banner.** On `ui.load` with a saved plan, show
-  "Restored your plan from earlier — N steps left" so a returning user (or judge
-  reloading) understands the state instantly.
+- [x] **Task 33 — restored-plan banner** *(done 2026-06-13: `restored_banner_html(rows)`
+  prepends "&#8617; Restored your plan from earlier — N steps left" to the summary on
+  `ui.load`; self-clears on the next action (handlers recompute summary without it);
+  hidden when the plan is complete or empty; singular/plural correct. 3 tests, suite
+  151 green)*.
 - [ ] **Task 34 — streak microcopy.** After each Done, rotate 3-4 short encouragements
   keyed to calibration honesty ("14 min vs 6 guessed — noted, adjusting"), not generic
   praise. Keep it one line; ADHD-safe (no guilt language).

@@ -1044,3 +1044,31 @@ def test_plan_ics_empty_rows_returns_empty() -> None:
     from datetime import datetime
 
     assert app.plan_ics("anything", [], datetime(2026, 6, 13, 9, 0, 0)) == ""
+
+
+def test_restored_banner_shows_remaining_count() -> None:
+    rows = [
+        {"text": "a", "logged": True, "actual_minutes": 5, "calibrated_minutes": 5},
+        {"text": "b", "logged": False, "skipped": False, "calibrated_minutes": 7},
+        {"text": "c", "logged": False, "skipped": False, "calibrated_minutes": 9},
+    ]
+    banner = app.restored_banner_html(rows)
+    assert "Restored your plan" in banner
+    assert "2 steps left" in banner
+
+
+def test_restored_banner_singular_step() -> None:
+    rows = [
+        {"text": "a", "logged": True, "actual_minutes": 5, "calibrated_minutes": 5},
+        {"text": "b", "logged": False, "skipped": False, "calibrated_minutes": 7},
+    ]
+    assert "1 step left" in app.restored_banner_html(rows)
+
+
+def test_restored_banner_hidden_when_complete_or_empty() -> None:
+    done = [
+        {"text": "a", "logged": True, "actual_minutes": 5, "calibrated_minutes": 5},
+        {"text": "b", "logged": False, "skipped": True, "calibrated_minutes": 5},
+    ]
+    assert app.restored_banner_html(done) == ""
+    assert app.restored_banner_html([]) == ""
