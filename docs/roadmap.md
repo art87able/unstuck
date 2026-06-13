@@ -52,6 +52,31 @@ Ideas and checks for later stages. Not commitments.
   Artur's lever (post + Discord + likes beget likes).
 - [ ] **Demo capture 2026-06-14** — ~90s video per `docs/deliverables/demo-script.md`, recorded in an HF-logged-in browser (anonymous ZeroGPU quota dies mid-demo), then post `docs/deliverables/social-post.md`. Submission deadline 2026-06-15.
 
+## Wave 12 — virality + post-deadline candidates (expanded 2026-06-13)
+
+- [x] **Task 31 — "Copy share update"** *(done 2026-06-13: `share_text()` builds a
+  paste-anywhere progress line — complete plans get the honest brag ("Got unstuck: …
+  N steps in M min (the AI guessed G)"), in-progress plans get "d of N steps done,
+  ~R min to go", both ending with the Space link; button beside "Copy as checklist",
+  same copy-textbox pattern; 4 golden tests, suite 145 green)*. Rationale: likes are
+  the visibility lever — give users a one-click way to talk about Unstuck.
+- [ ] **Task 32 — .ics export.** Turn the remaining steps into calendar blocks
+  (one VEVENT per unlogged step, calibrated lengths, back-to-back from "now") so the
+  plan lands where time-blind brains actually look. Pure-function + golden test shaped.
+- [ ] **Task 33 — restored-plan banner.** On `ui.load` with a saved plan, show
+  "Restored your plan from earlier — N steps left" so a returning user (or judge
+  reloading) understands the state instantly.
+- [ ] **Task 34 — streak microcopy.** After each Done, rotate 3-4 short encouragements
+  keyed to calibration honesty ("14 min vs 6 guessed — noted, adjusting"), not generic
+  praise. Keep it one line; ADHD-safe (no guilt language).
+- [ ] **Task 35 — "stuck heatmap" insight.** In Your patterns: which *category × step
+  position* most often gets skipped or re-broken — surfaces what kind of step the user
+  actually stalls on. Needs ≥10 records before showing.
+- [ ] **Task 36 — PWA wrapper** (post-hackathon): manifest + service worker on a thin
+  static host pointing at the Space, so Unstuck installs to a phone home screen.
+- [ ] **Task 37 — Apple Private Cloud Compute spike** (parked from earlier): check the
+  WWDC 2026 small-dev free-inference tier as a later backend for `generate()`.
+
 ## Nebius Serverless AI Builders Challenge (deadline 2026-06-30)
 
 Second competition for the same product — sequenced after the build-small submission (06-15).

@@ -476,6 +476,35 @@ def plan_markdown(task: str, rows: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def share_text(task: str, rows: list[dict]) -> str:
+    """Return a short, paste-anywhere progress update for the current plan."""
+    if not rows:
+        return ""
+
+    title = task.strip() or "my task"
+    n_done = sum(1 for row in rows if row["logged"])
+    n_skipped = sum(1 for row in rows if row.get("skipped"))
+    active = [row for row in rows if not row.get("skipped")]
+    complete = all(row["logged"] or row.get("skipped") for row in rows)
+
+    if complete:
+        took = sum(int(row["actual_minutes"]) for row in active if row["logged"])
+        guessed = sum(int(row["raw_minutes"]) for row in active)
+        line = (
+            f'Got unstuck: "{title}" — {n_done} steps in {took} min'
+            f" (the AI guessed {guessed})."
+        )
+    else:
+        remaining = sum(
+            int(row["calibrated_minutes"]) for row in active if not row["logged"]
+        )
+        line = (
+            f'Getting unstuck: "{title}" — {n_done} of {len(rows)} steps done,'
+            f" ~{remaining} min to go."
+        )
+    return f"{line} Made with Unstuck: https://build-small-hackathon-unstuck.hf.space"
+
+
 def splice_rows(
     rows: list[dict[str, Any]], step_id: int, new_rows: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
@@ -920,6 +949,10 @@ def build_ui(service: Unstuck) -> gr.Blocks:
         markdown = plan_markdown(task, rows)
         return gr.update(value=markdown, visible=bool(markdown))
 
+    def copy_share(task: str, rows: list[dict[str, Any]]) -> Any:
+        text = share_text(task, rows)
+        return gr.update(value=text, visible=bool(text))
+
     with gr.Blocks(title="Unstuck") as ui:
         gr.HTML(
             '<div id="hero"><h1>Unstuck</h1>'
@@ -1190,9 +1223,13 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                 file_types=[".json"],
             )
             copy_button = gr.Button("Copy as checklist")
+            share_button = gr.Button("Copy share update")
         export_file = gr.File(label="Download", interactive=False)
         checklist_output = gr.Textbox(
             label="Checklist", lines=8, visible=False, buttons=["copy"]
+        )
+        share_output = gr.Textbox(
+            label="Share update", lines=2, visible=False, buttons=["copy"]
         )
 
         break_button.click(
@@ -1261,6 +1298,11 @@ def build_ui(service: Unstuck) -> gr.Blocks:
             copy_checklist,
             inputs=[task, rows_state],
             outputs=checklist_output,
+        )
+        share_button.click(
+            copy_share,
+            inputs=[task, rows_state],
+            outputs=share_output,
         )
         ui.load(
             restore,

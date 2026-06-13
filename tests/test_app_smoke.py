@@ -914,3 +914,74 @@ def test_break_down_api_passes_tiny_granularity_to_prompt() -> None:
         assert GRANULARITY_RULES["tiny"] in prompts[0]
     finally:
         ui.close()
+
+
+def test_share_text_complete_plan_golden() -> None:
+    rows = [
+        {
+            "text": "Open the tax folder",
+            "logged": True,
+            "actual_minutes": 14,
+            "calibrated_minutes": 8,
+            "raw_minutes": 6,
+        },
+        {
+            "text": "Email accountant",
+            "logged": False,
+            "skipped": True,
+            "actual_minutes": None,
+            "calibrated_minutes": 8,
+            "raw_minutes": 5,
+        },
+        {
+            "text": "File the return",
+            "logged": True,
+            "actual_minutes": 34,
+            "calibrated_minutes": 30,
+            "raw_minutes": 24,
+        },
+    ]
+    assert app.share_text("Sort my taxes", rows) == (
+        'Got unstuck: "Sort my taxes" — 2 steps in 48 min (the AI guessed 30).'
+        " Made with Unstuck: https://build-small-hackathon-unstuck.hf.space"
+    )
+
+
+def test_share_text_in_progress_plan_golden() -> None:
+    rows = [
+        {
+            "text": "Open the tax folder",
+            "logged": True,
+            "actual_minutes": 3,
+            "calibrated_minutes": 4,
+            "raw_minutes": 4,
+        },
+        {
+            "text": "File the return",
+            "logged": False,
+            "actual_minutes": None,
+            "calibrated_minutes": 25,
+            "raw_minutes": 20,
+        },
+    ]
+    assert app.share_text("Sort my taxes", rows) == (
+        'Getting unstuck: "Sort my taxes" — 1 of 2 steps done, ~25 min to go.'
+        " Made with Unstuck: https://build-small-hackathon-unstuck.hf.space"
+    )
+
+
+def test_share_text_empty_rows_returns_empty() -> None:
+    assert app.share_text("anything", []) == ""
+
+
+def test_share_text_blank_task_uses_fallback_title() -> None:
+    rows = [
+        {
+            "text": "One step",
+            "logged": False,
+            "actual_minutes": None,
+            "calibrated_minutes": 5,
+            "raw_minutes": 5,
+        }
+    ]
+    assert 'Getting unstuck: "my task"' in app.share_text("   ", rows)
