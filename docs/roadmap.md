@@ -4,8 +4,13 @@ Ideas and checks for later stages. Not commitments.
 
 ## Development backlog (pre-deadline polish, until 2026-06-14)
 
-- [ ] **Task 11 — plan summary + graceful backend errors.** Header chip with the total calibrated time vs the raw AI total ("For you: ~42 min · AI thought 28"), live-updating as steps are logged; catch backend failures (ZeroGPU quota, model errors) in the UI and show a friendly retry message instead of a stack trace.
-- [ ] **Task 12 — "Still stuck?" per-step re-breakdown.** A button on any unlogged step that runs the breakdown on that single step's text and splices the resulting sub-steps in place — the core ADHD loop (any step can become the new overwhelming task) closed recursively.
+- [x] **Task 11 — plan summary + graceful backend errors** *(verified done 2026-06-13 audit:
+  header chip "For you: ~X min total · AI estimate: Y min" renders from `plan_summary` (app.py:326)
+  and re-renders from every handler; backend failures surface as `gr.Warning("The model backend
+  is busy...")` (app.py:581) — no stack traces reach the UI; suite 141 green)*.
+- [x] **Task 12 — "Still stuck?" per-step re-breakdown** *(verified done 2026-06-13 audit:
+  button on the spotlighted step (app.py:1082) splices tiny-granularity sub-steps in place;
+  was delivered as part of wave 8's "'Still stuck?' always tiny" thread)*.
 - [x] **Task 15 — built-in step timer** *(done 2026-06-11, `29cebff`: Start stamps the clock,
   Done auto-computes elapsed minutes via `finish_minutes()`; manual entry still wins)*.
 - [x] **Task 16 — copy plan as markdown checklist + Enter submits** *(done 2026-06-11,
