@@ -199,6 +199,65 @@ def test_nebius_backend_requires_api_key(monkeypatch: pytest.MonkeyPatch) -> Non
         reload_backend(monkeypatch)
 
 
+def _install_fake_llama_cpp(
+    monkeypatch: pytest.MonkeyPatch, calls: dict[str, object]
+) -> None:
+    """Insert a fake `llama_cpp` so the offgrid backend never loads real weights
+    or touches the network."""
+
+    class FakeLlama:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            calls["init_args"] = args
+            calls["init_kwargs"] = kwargs
+
+        def create_chat_completion(self, **kwargs: object) -> object:
+            calls["chat_kwargs"] = kwargs
+            return {"choices": [{"message": {"content": "ok"}}]}
+
+    fake_llama_cpp = types.ModuleType("llama_cpp")
+    fake_llama_cpp.Llama = FakeLlama  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "llama_cpp", fake_llama_cpp)
+
+
+def test_offgrid_backend_runs_on_a_local_gguf(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: dict[str, object] = {}
+    _install_fake_llama_cpp(monkeypatch, calls)
+    monkeypatch.setenv("UNSTUCK_BACKEND", "offgrid")
+    monkeypatch.setenv("OFFGRID_GGUF_PATH", "/models/qwen3-4b.gguf")
+
+    backend = reload_backend(monkeypatch)
+
+    assert backend.generate("hi") == "ok"
+    # On-device: a local file path is loaded — no base_url, no api_key, no network.
+    init_kwargs = calls["init_kwargs"]
+    assert isinstance(init_kwargs, dict)
+    assert init_kwargs["model_path"] == "/models/qwen3-4b.gguf"
+    assert calls["chat_kwargs"] == {
+        "messages": [{"role": "user", "content": "hi"}],
+        "max_tokens": 512,
+        "temperature": 0,
+    }
+
+
+def test_offgrid_backend_respects_temperature_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: dict[str, object] = {}
+    _install_fake_llama_cpp(monkeypatch, calls)
+    monkeypatch.setenv("UNSTUCK_BACKEND", "offgrid")
+    monkeypatch.setenv("OFFGRID_GGUF_PATH", "/models/qwen3-4b.gguf")
+    monkeypatch.setenv("UNSTUCK_TEMPERATURE", "0.5")
+
+    backend = reload_backend(monkeypatch)
+
+    assert backend.generate("hi") == "ok"
+    assert calls["chat_kwargs"] == {
+        "messages": [{"role": "user", "content": "hi"}],
+        "max_tokens": 512,
+        "temperature": 0.5,
+    }
+
+
 def test_unknown_backend_raises_value_error(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("UNSTUCK_BACKEND", "bogus")
 

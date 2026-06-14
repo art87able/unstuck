@@ -45,7 +45,7 @@ CSS = """
 #hero h1 { font-size: 2rem; margin: 0; letter-spacing: -0.02em; color: #1c1917; }
 #hero p { color: #78716c; margin: 0.4rem 0 0; font-size: 1.02rem; }
 #steps-list { display: flex; flex-direction: column; gap: 10px; }
-.step-card { display: flex; align-items: center; gap: 14px; background: #fff;
+.step-card { display: flex; align-items: center; gap: 14px; min-width: 0; background: #fff;
   border: 1px solid #eee9e2; border-radius: 12px; padding: 12px 16px;
   box-shadow: 0 1px 2px rgba(40, 35, 60, 0.05); }
 .step-next { border-color:#4f46e5; box-shadow:0 2px 8px rgba(79,70,229,0.18); }
@@ -56,7 +56,7 @@ CSS = """
 .step-num { flex: none; width: 30px; height: 30px; border-radius: 50%;
   background: #eef2ff; color: #4f46e5; font-weight: 600; display: flex;
   align-items: center; justify-content: center; font-size: 0.9rem; }
-.step-text { flex: 1; color: #292524; font-size: 1rem; line-height: 1.4; }
+.step-text { flex: 1; min-width: 0; overflow-wrap: anywhere; color: #292524; font-size: 1rem; line-height: 1.4; }
 .chip { flex: none; border-radius: 999px; padding: 3px 11px; font-size: 0.82rem;
   white-space: nowrap; }
 .chip-raw { background: #f5f5f4; color: #78716c; }
@@ -64,7 +64,8 @@ CSS = """
 .chip-done { background: #ecfdf5; color: #047857; font-weight: 600; }
 .chip-timer { background: #fef3c7; color: #b45309; font-weight: 600; }
 .chip-skip { background:#f5f5f4; color:#a8a29e; }
-.step-row { align-items: center !important; gap: 10px !important; margin-bottom: 10px; }
+.step-row { align-items: center !important; gap: 8px !important; margin-bottom: 10px; flex-wrap: wrap !important; }
+.step-row .step-html { flex: 1 1 320px !important; min-width: 0 !important; }
 .step-row .step-card { flex: 1; }
 .took-input input { border-radius: 10px !important; }
 .readout { background: #eef2ff; color: #4338ca; border-radius: 12px; padding: 12px 18px;
@@ -91,6 +92,7 @@ footer { display: none !important; }
   #hero h1 { font-size: 1.6rem; }
   #hero p { font-size: 0.94rem; }
   .step-row { flex-wrap: wrap !important; }
+  .step-row .step-html { flex: 1 1 100% !important; }
   .step-row .step-card { flex: 1 1 100%; }
   .step-card { flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
   .step-text { flex: 1 1 calc(100% - 40px); font-size: 0.95rem; }
@@ -1129,6 +1131,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                         + timer_chip
                         + "</div>",
                         padding=False,
+                        elem_classes="step-html",
                     )
                     if row["logged"] or row.get("skipped"):
                         undo = gr.Button(

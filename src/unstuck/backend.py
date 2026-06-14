@@ -139,5 +139,26 @@ elif BACKEND == "nebius":
         )
         return str(response.choices[0].message.content)
 
+elif BACKEND == "offgrid":
+    from llama_cpp import Llama
+
+    # Fully on-device: a local quantised GGUF model, no network and no cloud API.
+    # This is the honest basis for the achievement:offgrid badge — point
+    # OFFGRID_GGUF_PATH at a Qwen3-4B GGUF (e.g. a Q4_K_M build) and the app runs
+    # the same generate(prompt) -> str seam with zero outbound calls.
+    GGUF_PATH = os.environ.get(
+        "OFFGRID_GGUF_PATH", "models/Qwen3-4B-Instruct-2507-Q4_K_M.gguf"
+    )
+    _llm = Llama(model_path=GGUF_PATH, n_ctx=4096, verbose=False)
+
+    def generate(prompt: str) -> str:
+        """Generate fully on-device via a local GGUF model (no network)."""
+        response = _llm.create_chat_completion(
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=512,
+            temperature=TEMPERATURE,
+        )
+        return str(response["choices"][0]["message"]["content"])
+
 else:
     raise ValueError(f"unsupported UNSTUCK_BACKEND: {BACKEND}")
