@@ -1,0 +1,35 @@
+src/unstuck/backend.py
+  s_fbf15bef441419::t_faf600c3e3c4da 142-162
+.gitignore
+  s_fbf15bef441419::t_e2054b2904376a 8-9
+app.py
+  s_fbf15bef441419::t_ad4063f0bcbe80 95
+  s_fbf15bef441419::t_4ecf3febbd3592 67-68
+  s_fbf15bef441419::t_1296a9b2883e06 48
+  s_fbf15bef441419::t_31a8c47ccd60aa 59
+  s_fbf15bef441419::t_e563395872f735 1134
+tests/test_backend.py
+  s_fbf15bef441419::t_6fe8b44c1fd5e0 202-260
+README.md
+  s_fbf15bef441419::t_e523aefdf3dd88 45
+  s_fbf15bef441419::t_173cb0cd028827 19-20
+  s_fbf15bef441419::t_6ad2ada1abd0b6 47-55
+  s_fbf15bef441419::t_2e5897486a47c9 21-23
+  s_fbf15bef441419::t_dbf0121175a8e3 66-77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "437010fe94a6c0059cd2d31ae39528b0270554b6",
+  "prompts": {},
+  "sessions": {
+    "s_fbf15bef441419": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a37321b1-3ce7-4e4c-8d2a-1c27704185df",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Artur Arapov <art87able@gmail.com>"
+    }
+  }
+}
