@@ -1,0 +1,25 @@
+app.py
+  s_77ce0af48aea3a::t_1e038e1d1a602d 100-101
+docs/deliverables/nebius-submission.md
+  s_77ce0af48aea3a::t_09f182e3abedbf 22,26,33
+  s_77ce0af48aea3a::t_c8620509db5ada 86-87
+  s_77ce0af48aea3a::t_ed47407ab7136e 1
+  s_77ce0af48aea3a::t_025ea11972b3df 63-81
+  s_77ce0af48aea3a::t_d6b0567fc066ec 104-106
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "4f66301b26cba922d9045b638eaced02155edc81",
+  "prompts": {},
+  "sessions": {
+    "s_77ce0af48aea3a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0bf53421-d5aa-4601-b191-e2f5c8f870bc",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Artur Arapov <art87able@gmail.com>"
+    }
+  }
+}
