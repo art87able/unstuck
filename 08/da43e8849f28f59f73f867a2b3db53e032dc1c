@@ -1,0 +1,21 @@
+tests/test_recall.py
+  s_05d65e54cb3eef::t_b348ff4e731e1e 1-61
+src/unstuck/recall.py
+  s_05d65e54cb3eef::t_fc3f6b695f83fa 1-73
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "08da43e8849f28f59f73f867a2b3db53e032dc1c",
+  "prompts": {},
+  "sessions": {
+    "s_05d65e54cb3eef": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ecb13-0cc9-76b0-8051-9df6e93eaa05",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Artur Arapov <art87able@gmail.com>"
+    }
+  }
+}
