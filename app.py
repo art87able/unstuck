@@ -199,6 +199,18 @@ def bump_dismissal(
     return updated
 
 
+def apply_dismissal(data: dict, pointer: dict | None) -> dict:
+    """Return BrowserState data with the recalled entry's dismissal bumped, if any.
+
+    Two dismissals push an entry's count to MAX_DISMISSALS, after which
+    recall.select skips it — the 'shake off a sticky recall' behaviour."""
+    dismiss_index = (pointer or {}).get("dismiss_index")
+    if dismiss_index is None:
+        return data
+    history = bump_dismissal(_history_from_data(data), int(dismiss_index))
+    return with_history(data, history)
+
+
 def record_duration_in_history(
     history: list[dict[str, Any]], index: int, category: str, actual_minutes: int
 ) -> list[dict[str, Any]]:
@@ -828,6 +840,40 @@ def build_ui(
              "task": clean_task, "granularity": granularity},
         )
 
+    def start_fresh(
+        task: str, data: dict, granularity: str, pointer: dict | None
+    ) -> tuple[list[dict[str, Any]], str, str, str, dict, None, str, None]:
+        clean_task = task.strip()
+        records = _records_from_data(data)
+        data = apply_dismissal(data, pointer)
+        history = _history_from_data(data)
+        try:
+            view = service.breakdown(clean_task, granularity, exemplar=None)
+            rows = recalibrated(view_rows(view), records)
+        except Exception:
+            gr.Warning("The model backend is busy. Try again in a minute.")
+            return (
+                [],
+                readout(records),
+                "",
+                patterns(records),
+                with_history(persist(data, clean_task, []), history),
+                None,
+                "",
+                None,
+            )
+        updated = with_history(persist(data, clean_task, rows), history)
+        return (
+            rows,
+            readout(records),
+            completion_html(rows) + summary_html(rows),
+            patterns(records),
+            updated,
+            None,
+            "",
+            None,
+        )
+
     def new_plan_ui(
         data: dict,
     ) -> tuple[list[dict[str, Any]], str, str, str, Any, dict, None]:
@@ -1217,6 +1263,27 @@ def build_ui(
         summary_output = gr.HTML()
         with gr.Accordion("Your patterns", open=False):
             patterns_output = gr.HTML()
+
+        @gr.render(inputs=[recall_state])
+        def render_recall_actions(pointer: dict | None) -> None:
+            if not pointer or pointer.get("dismiss_index") is None:
+                return
+            fresh = gr.Button("Start fresh", size="sm", variant="secondary")
+            fresh.click(
+                start_fresh,
+                inputs=[task, user_data, granularity, recall_state],
+                outputs=[
+                    rows_state,
+                    readout_output,
+                    summary_output,
+                    patterns_output,
+                    user_data,
+                    editing_step_id,
+                    recall_banner_output,
+                    recall_state,
+                ],
+                api_name="start_fresh",
+            )
 
         @gr.render(inputs=[rows_state, editing_step_id])
         def render_rows(rows: list[dict[str, Any]], editing_id: int | None) -> None:

@@ -1188,3 +1188,40 @@ def test_break_down_uses_recall_exemplar_and_seeds_estimates() -> None:
         assert any("Example: Task \"tidy my inbox\"" in p for p in prompts)
     finally:
         ui.close()
+
+
+def test_apply_dismissal_bumps_pointed_entry() -> None:
+    history = [
+        app.make_history_entry("a", [1.0], []),
+        app.make_history_entry("b", [0.0], []),
+    ]
+    data = {"records": [], "plan": None, "history": history}
+
+    updated = app.apply_dismissal(data, {"dismiss_index": 1})
+
+    assert updated["history"][1]["dismissals"] == 1
+    assert updated["history"][0]["dismissals"] == 0
+
+
+def test_apply_dismissal_none_pointer_is_noop() -> None:
+    entry = app.make_history_entry("a", [1.0], [])
+    data = {"records": [], "plan": None, "history": [entry]}
+
+    assert app.apply_dismissal(data, None)["history"][0]["dismissals"] == 0
+
+
+def test_two_dismissals_exclude_entry_from_recall() -> None:
+    """Shake-off end-to-end at the logic level: dismiss twice via the same code path
+    start_fresh uses, then recall.select skips the entry."""
+    from unstuck.recall import select
+
+    data = {
+        "records": [],
+        "plan": None,
+        "history": [app.make_history_entry("tidy inbox", [1.0, 0.0], [])],
+    }
+    data = app.apply_dismissal(data, {"dismiss_index": 0})
+    data = app.apply_dismissal(data, {"dismiss_index": 0})
+
+    assert data["history"][0]["dismissals"] == 2
+    assert select([1.0, 0.0], data["history"], threshold=0.5) is None
