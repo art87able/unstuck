@@ -1,0 +1,22 @@
+.gitignore
+  s_fbf15bef441419::t_91358f5d059948 10-11
+README.md
+  s_fbf15bef441419::t_3f54c389087797 63-64
+  s_fbf15bef441419::t_f744d2f5432cbb 92-95
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "7b80bf6916dd3bbe62f94e89b1da084396a8f2ae",
+  "prompts": {},
+  "sessions": {
+    "s_fbf15bef441419": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a37321b1-3ce7-4e4c-8d2a-1c27704185df",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Artur Arapov <art87able@gmail.com>"
+    }
+  }
+}
