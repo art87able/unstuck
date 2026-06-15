@@ -286,5 +286,19 @@ elif BACKEND == "finetuned":
         generated = output_ids[0][inputs["input_ids"].shape[-1] :]
         return str(_ft_tokenizer.decode(generated, skip_special_tokens=True))
 
+elif BACKEND == "modal":
+    import httpx
+
+    # Runtime serving on Modal: a deployed Modal web endpoint hosts the published
+    # fine-tune (scripts/finetune/modal_serve.py). This is the sponsor:modal
+    # *runtime* path — Modal for serving the app, not only training it.
+    MODAL_ENDPOINT_URL = os.environ["MODAL_ENDPOINT_URL"]
+
+    def generate(prompt: str) -> str:
+        """Generate via the fine-tune served on a Modal web endpoint."""
+        response = httpx.post(MODAL_ENDPOINT_URL, json={"prompt": prompt}, timeout=120)
+        response.raise_for_status()
+        return str(response.json()["text"])
+
 else:
     raise ValueError(f"unsupported UNSTUCK_BACKEND: {BACKEND}")

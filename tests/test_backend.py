@@ -383,6 +383,37 @@ def test_finetuned_backend_loads_published_model(
     assert backend.generate("break this down").startswith('{"steps"')
 
 
+def test_modal_backend_posts_to_endpoint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: dict[str, object] = {}
+
+    class FakeResp:
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> dict:
+            return {"text": '{"steps":[{"text":"Open the file","category":"admin","est_minutes":3}]}'}
+
+    fake_httpx = types.ModuleType("httpx")
+
+    def fake_post(url: str, **kwargs: object) -> FakeResp:
+        calls["url"] = url
+        calls["kwargs"] = kwargs
+        return FakeResp()
+
+    fake_httpx.post = fake_post  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "httpx", fake_httpx)
+    monkeypatch.setenv("UNSTUCK_BACKEND", "modal")
+    monkeypatch.setenv("MODAL_ENDPOINT_URL", "https://unstuck.modal.run")
+
+    backend = reload_backend(monkeypatch)
+
+    assert backend.generate("hi").startswith('{"steps"')
+    assert calls["url"] == "https://unstuck.modal.run"
+    assert calls["kwargs"]["json"] == {"prompt": "hi"}
+
+
 def test_unknown_backend_raises_value_error(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("UNSTUCK_BACKEND", "bogus")
 
