@@ -1,0 +1,32 @@
+app.py
+  s_77ce0af48aea3a::t_eb29f24fcc07ae 848
+  s_503f3ba141f593::t_4e1a436bcf1615 843-847,849-876,1267-1286
+  s_77ce0af48aea3a::t_564e0d90c7b75c 202-213
+tests/test_app_smoke.py
+  s_503f3ba141f593::t_010a442ef5cf0a 1191-1192
+  s_77ce0af48aea3a::t_7b78bc5b7240ba 1193-1227
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "d88d833481c9e1f4b7ad3f32497e0b843e755bf9",
+  "prompts": {},
+  "sessions": {
+    "s_503f3ba141f593": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ecbe0-6e2a-7d90-9ecf-4ecbf2efcde8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Artur Arapov <art87able@gmail.com>"
+    },
+    "s_77ce0af48aea3a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0bf53421-d5aa-4601-b191-e2f5c8f870bc",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Artur Arapov <art87able@gmail.com>"
+    }
+  }
+}
