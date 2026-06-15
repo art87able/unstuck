@@ -122,3 +122,41 @@ Re-ran at `UNSTUCK_TEMPERATURE=0.3`: identical headline (35/36 valid, all first-
 cap violations), marginally better deep-work coverage. Verdict: greedy stays the code
 default; 0.3 is eval-cleared for the live Space so repeated demo runs don't produce
 byte-identical plans.
+
+### 8. The same seam scales to four backends
+
+The injected `generate(prompt) -> str` boundary started as a testing trick (learning 1). It
+turned out to be the most load-bearing decision in the build, because the serving stack became a
+one-line, deploy-time choice. `UNSTUCK_BACKEND` now selects four completely different stacks
+behind that one function:
+
+- `zerogpu` — local weights on the Space's GPU slice (default, privacy-first).
+- `hf_inference` — `InferenceClient(model).chat_completion(...)` from a plain CPU Space.
+- `nebius` — the same client pointed at Nebius Token Factory (serverless, OpenAI-compatible) — about 20 lines.
+- `offgrid` — a quantised GGUF run through `llama-cpp-python` with **zero network**, fully on-device.
+
+Not one line of product logic changed across those four. The 153-test suite still runs on canned
+strings with no network and no GPU, because `backend.py` remains the only module that touches a
+real model. The lesson compounding from learning 1: an injected seam isn't just for tests — it
+makes "where does inference run" a configuration value, not an architecture.
+
+### 9. Badges are earned by the architecture — and demonstrated, not claimed
+
+A hackathon stacks bonus badges on top of the track prizes, and the honest way to collect them is
+to notice which ones the build *already* earns rather than bolting features on. Unstuck's map:
+**Tiny Titan** (≤4B — Qwen3-4B); **Off the Grid** + **Llama Champion** (the `offgrid` backend);
+**Sharing is Caring** (the full agent build-trace published as a Hub dataset); **Field Notes**
+(this write-up); **Off-Brand** (a custom UI); and the **OpenAI / Codex** track (the Codex-built,
+Codex-attributed core).
+
+Two things mattered more than the list:
+
+- **Demonstrate, don't claim.** For "runs offline," a screenshot proves nothing — it can't tell a
+  local model from the hosted Space. So I actually ran the app on the `offgrid` backend against a
+  local GGUF and captured a transcript: the env, llama.cpp loading the `.gguf`, and the model's
+  output, with the README shipping the exact reproduction command. A reviewer can re-execute it.
+  The instinct is the same as a green test over "works on my machine."
+- **Off-brand is a thin layer.** Moving from "obviously Gradio" to "designed" was theme tokens and
+  CSS only — a custom `gr.themes` palette, a display-serif gradient wordmark, layered step cards,
+  focus rings, a hidden framework footer — no `gr.Server` rewrite and no build step. The whole
+  logic suite stayed green because presentation changes are bounded to what you can see.
