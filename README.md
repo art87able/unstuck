@@ -49,7 +49,7 @@ What it does beyond a breakdown bot: a built-in step timer (Start → Done measu
 - 📺 **Demo video:** [watch the ~90-second demo](https://huggingface.co/spaces/build-small-hackathon/unstuck/resolve/main/unstuck-demo.mp4)
 - 📣 **Social post:** https://x.com/arty_able/status/2066306266843021603
 - 🧾 **Agent trace (open trace):** https://huggingface.co/datasets/build-small-hackathon/unstuck-agent-trace
-- 📝 **Field notes (build write-up):** [docs/field-notes.md](https://github.com/art87able/unstuck/blob/main/docs/field-notes.md)
+- 📝 **Field notes (build write-up):** [HF blog post](https://huggingface.co/blog/art87able/building-unstuck-small) · [source](https://github.com/art87able/unstuck/blob/main/docs/field-notes.md)
 - 💻 **Source:** https://github.com/art87able/unstuck
 
 **Model:** `Qwen/Qwen3-4B-Instruct-2507` (4B — within the Tiny Titan ≤4B bar). **Built small, in the open** with OpenAI Codex (Codex-attributed commits) and an honest deterministic calibration layer — no AI in the differentiator.
@@ -64,7 +64,7 @@ What it does beyond a breakdown bot: a built-in step timer (Start → Done measu
 | 🦙 **Llama Champion** (llama.cpp) | Model runs through the llama.cpp runtime | the `offgrid` backend drives `Qwen3-4B-…-Q4_K_M.gguf` via `llama-cpp-python` (same proof screenshot) |
 | 🧾 **Sharing is Caring** (open trace) | Agent trace shared on the Hub | [unstuck-agent-trace dataset](https://huggingface.co/datasets/build-small-hackathon/unstuck-agent-trace) |
 | 🎨 **Off-Brand** (custom UI) | A frontend that pushes past the default Gradio look | custom `gr.themes` theme + a Fraunces gradient wordmark, gradient buttons, layered/hover step cards, indigo focus rings, fully de-branded chrome (see `THEME`/`CSS` in `app.py`) |
-| 📝 **Field Notes** | A write-up of what we built and learned | [field notes](https://github.com/art87able/unstuck/blob/main/docs/field-notes.md) |
+| 📝 **Field Notes** | A published write-up of what we built and learned | [HF blog: *Building Unstuck small*](https://huggingface.co/blog/art87able/building-unstuck-small) (also in [`docs/field-notes.md`](https://github.com/art87able/unstuck/blob/main/docs/field-notes.md)) |
 | 🤖 **sponsor:openai** (Codex) | Codex-attributed commits in the repo | built with the OpenAI Codex CLI — commit trail + the [agent-trace dataset](https://huggingface.co/datasets/build-small-hackathon/unstuck-agent-trace) |
 | 🏅 **Bonus Quest Champion** | Most bonus criteria met | the eight rows above, each genuinely earned |
 
