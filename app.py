@@ -97,6 +97,8 @@ footer, .built-with, a[href*="gradio.app"] { display: none !important; }
   font-size: 0.94rem; text-align: center; margin-top: 8px; font-weight: 600; }
 .restored-banner { background:#eff6ff; color:#1d4ed8; border-radius:12px;
   padding:10px 16px; font-size:0.92rem; text-align:center; margin-top:8px; font-weight:600; }
+.recall-banner { font-size: 13px; color: #4f46e5; background: rgba(79,70,229,0.08);
+  border-radius: 10px; padding: 8px 12px; margin: 8px 0; }
 .patterns { display:flex; flex-direction:column; gap:8px; }
 .pattern-row { display:flex; align-items:flex-end; gap:10px; background:#fff;
   border:1px solid #eee9e2; border-radius:10px; padding:8px 14px; font-size:0.88rem; }
