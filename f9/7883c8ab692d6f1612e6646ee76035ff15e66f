@@ -1,0 +1,25 @@
+docs/superpowers/specs/2026-06-15-nebius-recall-design.md
+  s_77ce0af48aea3a::t_050a1b54250ed2 57-59
+docs/superpowers/plans/2026-06-15-nebius-recall.md
+  s_77ce0af48aea3a::t_58a7560f78ca79 836-837
+  s_77ce0af48aea3a::t_06ea5540cd917b 1-835,838-873,875-898,900-925,955-1226
+  s_77ce0af48aea3a::t_e00c09278745ad 926-954
+  s_77ce0af48aea3a::t_25c9093f671977 899
+  s_77ce0af48aea3a::t_c9aebe6d82790b 874
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "f97883c8ab692d6f1612e6646ee76035ff15e66f",
+  "prompts": {},
+  "sessions": {
+    "s_77ce0af48aea3a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0bf53421-d5aa-4601-b191-e2f5c8f870bc",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Artur Arapov <art87able@gmail.com>"
+    }
+  }
+}
