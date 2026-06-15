@@ -666,6 +666,18 @@ def test_record_duration_in_history_appends_to_entry() -> None:
     assert history[0]["durations"] == []  # original untouched
 
 
+def test_record_duration_then_seed_roundtrip() -> None:
+    from unstuck.recall import seed_estimates
+
+    history = [app.make_history_entry("tidy inbox", [1.0], [])]
+    history = app.record_duration_in_history(history, 0, "admin", 30)
+
+    rows = [{"category": "admin", "calibrated_minutes": 10, "raw_minutes": 10}]
+    seeded = seed_estimates(rows, history[0])
+
+    assert seeded[0]["calibrated_minutes"] == 30
+
+
 def test_plan_markdown_mixed_rows_golden() -> None:
     rows = [
         {

@@ -844,6 +844,7 @@ def build_ui(
             task: str,
             rows: list[dict[str, Any]],
             data: dict,
+            recall_state: dict[str, Any] | None,
         ) -> tuple[list[dict[str, Any]], str, str, str, dict]:
             records = _records_from_data(data)
             row = next((row for row in rows if row["step_id"] == step_id), None)
@@ -868,9 +869,10 @@ def build_ui(
                     patterns(records),
                     updated,
                 )
+            category = str(row["category"])
             records = records + [
                 make_record(
-                    str(row["category"]),
+                    category,
                     int(row["raw_minutes"]),
                     actual,
                     now,
@@ -890,6 +892,16 @@ def build_ui(
             ]
             rows = recalibrated(rows, records)
             updated = persist(with_records(data, records), task, rows)
+            pointer = recall_state if isinstance(recall_state, dict) else {}
+            history_index = pointer.get("history_index")
+            if history_index is not None:
+                history = record_duration_in_history(
+                    _history_from_data(updated),
+                    int(history_index),
+                    category,
+                    actual,
+                )
+                updated = with_history(updated, history)
             return (
                 rows,
                 readout(records),
@@ -1316,7 +1328,7 @@ def build_ui(
                         )
                         done.click(
                             log_step(int(row["step_id"])),
-                            inputs=[minutes, task, rows_state, user_data],
+                            inputs=[minutes, task, rows_state, user_data, recall_state],
                             outputs=[
                                 rows_state,
                                 readout_output,
