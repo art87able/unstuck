@@ -1120,7 +1120,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
         )
         rows_state = gr.State([])
         user_data = gr.BrowserState(
-            {"records": [], "plan": None}, storage_key="unstuck-v1"
+            {"records": [], "plan": None, "history": []}, storage_key="unstuck-v1"
         )
 
         task = gr.Textbox(
