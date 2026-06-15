@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from unstuck.schema import CATEGORIES
 
 
@@ -80,14 +82,36 @@ Return ONLY a JSON object with this exact schema and no prose or markdown fence:
 {{"steps":[{{"text":"...","category":"...","est_minutes":1}}]}}"""
 
 
-def breakdown_prompt(task: str, granularity: str = "regular") -> str:
-    """Build the first-pass prompt for breaking one task into validated step JSON."""
+def breakdown_prompt(
+    task: str, granularity: str = "regular", exemplar: str | None = None
+) -> str:
+    """Build the first-pass prompt for breaking one task into validated step JSON.
+
+    When `exemplar` is given (a recalled `Example: Task "..." -> {...}` line) it is
+    injected on its own line; when None the output is byte-for-byte the original."""
+    exemplar_block = f"{exemplar}\n" if exemplar else ""
     return (
         f"{_system_block(granularity)}\n\n"
         f"{EXAMPLES[granularity]}\n"
-        f"{EXAMPLES_EXTRA[granularity]}\n\n"
+        f"{EXAMPLES_EXTRA[granularity]}\n"
+        f"{exemplar_block}\n"
         f'Task: "{task}"'
     )
+
+
+def format_exemplar(task_text: str, steps: list[dict]) -> str:
+    """Render a past breakdown as a single few-shot example line for the prompt."""
+    payload = {
+        "steps": [
+            {
+                "text": str(step["text"]),
+                "category": str(step["category"]),
+                "est_minutes": int(step["est_minutes"]),
+            }
+            for step in steps
+        ]
+    }
+    return f'Example: Task "{task_text}" -> {json.dumps(payload, separators=(",", ":"))}'
 
 
 def repair_prompt(

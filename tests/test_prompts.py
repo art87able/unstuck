@@ -161,3 +161,44 @@ def test_chunky_prompt_does_not_demand_five_minute_starter() -> None:
 
     assert "5 minutes or less" not in prompt
     assert "easiest" in prompt
+
+
+import json
+
+from unstuck.prompts import breakdown_prompt, format_exemplar
+
+
+def test_breakdown_prompt_without_exemplar_is_unchanged() -> None:
+    prompt = breakdown_prompt("write the report", granularity="regular")
+
+    # The Task line still follows the second example block with a blank line.
+    assert prompt.endswith('Task: "write the report"')
+    assert "Example: Task" in prompt
+    assert "\n\nTask:" in prompt
+
+
+def test_breakdown_prompt_injects_exemplar_on_its_own_line() -> None:
+    exemplar = 'Example: Task "old task" -> {"steps":[]}'
+
+    prompt = breakdown_prompt("new task", granularity="regular", exemplar=exemplar)
+
+    assert exemplar in prompt
+    assert f"{exemplar}\n\nTask:" in prompt
+
+
+def test_format_exemplar_renders_example_line() -> None:
+    steps = [
+        {"text": "Open the file", "category": "admin", "est_minutes": 3},
+        {"text": "Draft the intro", "category": "creative", "est_minutes": 10},
+    ]
+
+    line = format_exemplar("write the report", steps)
+
+    assert line.startswith('Example: Task "write the report" -> ')
+    payload = json.loads(line.split(" -> ", 1)[1])
+    assert payload == {
+        "steps": [
+            {"text": "Open the file", "category": "admin", "est_minutes": 3},
+            {"text": "Draft the intro", "category": "creative", "est_minutes": 10},
+        ]
+    }
