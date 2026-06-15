@@ -139,6 +139,61 @@ elif BACKEND == "nebius":
         )
         return str(response.choices[0].message.content)
 
+elif BACKEND == "minicpm":
+    from huggingface_hub import InferenceClient
+
+    # OpenBMB MiniCPM — a small (<32B) instruct model. The seam is unchanged: the
+    # same generate(prompt) -> str runs on MiniCPM weights instead of Qwen. NOTE:
+    # as of 2026-06 no public HF Inference Provider serves MiniCPM, so point
+    # MINICPM_BASE_URL at an OpenAI-compatible host that hosts it (self-hosted vLLM,
+    # a NIM, etc.); the bare HF router default will 400 until a provider lists it.
+    MINICPM_MODEL = os.environ.get("MINICPM_MODEL", "openbmb/MiniCPM3-4B")
+    MINICPM_BASE_URL = os.environ.get("MINICPM_BASE_URL")
+    if MINICPM_BASE_URL:
+        client = InferenceClient(
+            base_url=MINICPM_BASE_URL, api_key=os.environ.get("MINICPM_API_KEY")
+        )
+    else:
+        client = InferenceClient(MINICPM_MODEL, token=os.environ.get("HF_TOKEN"))
+
+    def generate(prompt: str) -> str:
+        """Generate through an OpenBMB MiniCPM model."""
+        response = client.chat_completion(
+            model=MINICPM_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=512,
+            temperature=TEMPERATURE,
+        )
+        return str(response.choices[0].message.content)
+
+elif BACKEND == "nemotron":
+    from huggingface_hub import InferenceClient
+
+    # NVIDIA Nemotron — a small (<32B) instruct model. Same seam. NOTE: as of
+    # 2026-06 the small Nemotron models aren't on public HF Inference Providers, so
+    # point NEMOTRON_BASE_URL at an OpenAI-compatible host (e.g. NVIDIA NIM /
+    # build.nvidia.com); the bare HF router default will reject it until then.
+    NEMOTRON_MODEL = os.environ.get(
+        "NEMOTRON_MODEL", "nvidia/Nemotron-Mini-4B-Instruct"
+    )
+    NEMOTRON_BASE_URL = os.environ.get("NEMOTRON_BASE_URL")
+    if NEMOTRON_BASE_URL:
+        client = InferenceClient(
+            base_url=NEMOTRON_BASE_URL, api_key=os.environ.get("NEMOTRON_API_KEY")
+        )
+    else:
+        client = InferenceClient(NEMOTRON_MODEL, token=os.environ.get("HF_TOKEN"))
+
+    def generate(prompt: str) -> str:
+        """Generate through an NVIDIA Nemotron model."""
+        response = client.chat_completion(
+            model=NEMOTRON_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=512,
+            temperature=TEMPERATURE,
+        )
+        return str(response.choices[0].message.content)
+
 elif BACKEND == "offgrid":
     from llama_cpp import Llama
 

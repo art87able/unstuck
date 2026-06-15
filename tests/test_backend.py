@@ -258,6 +258,64 @@ def test_offgrid_backend_respects_temperature_env(
     }
 
 
+def test_minicpm_backend_uses_minicpm_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: dict[str, object] = {}
+
+    class FakeInferenceClient:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            calls["init_args"] = args
+
+        def chat_completion(self, **kwargs: object) -> object:
+            calls["chat_completion_kwargs"] = kwargs
+            message = types.SimpleNamespace(content="ok")
+            choice = types.SimpleNamespace(message=message)
+            return types.SimpleNamespace(choices=[choice])
+
+    fake_hub = types.ModuleType("huggingface_hub")
+    fake_hub.InferenceClient = FakeInferenceClient
+    monkeypatch.setitem(sys.modules, "huggingface_hub", fake_hub)
+    monkeypatch.setenv("UNSTUCK_BACKEND", "minicpm")
+
+    backend = reload_backend(monkeypatch)
+
+    assert backend.generate("hi") == "ok"
+    assert calls["init_args"][0] == backend.MINICPM_MODEL
+    assert calls["chat_completion_kwargs"] == {
+        "model": backend.MINICPM_MODEL,
+        "messages": [{"role": "user", "content": "hi"}],
+        "max_tokens": 512,
+        "temperature": 0,
+    }
+
+
+def test_nemotron_backend_passes_nemotron_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: dict[str, object] = {}
+
+    class FakeInferenceClient:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            calls["init_args"] = args
+
+        def chat_completion(self, **kwargs: object) -> object:
+            calls["chat_completion_kwargs"] = kwargs
+            message = types.SimpleNamespace(content="ok")
+            choice = types.SimpleNamespace(message=message)
+            return types.SimpleNamespace(choices=[choice])
+
+    fake_hub = types.ModuleType("huggingface_hub")
+    fake_hub.InferenceClient = FakeInferenceClient
+    monkeypatch.setitem(sys.modules, "huggingface_hub", fake_hub)
+    monkeypatch.setenv("UNSTUCK_BACKEND", "nemotron")
+
+    backend = reload_backend(monkeypatch)
+
+    assert backend.generate("hi") == "ok"
+    assert calls["chat_completion_kwargs"]["model"] == backend.NEMOTRON_MODEL
+
+
 def test_unknown_backend_raises_value_error(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("UNSTUCK_BACKEND", "bogus")
 
