@@ -1,0 +1,23 @@
+src/unstuck/backend.py
+  s_90cd5e9461661c::t_d3422e9c825e31 142-184
+tests/test_backend.py
+  s_90cd5e9461661c::t_3a925712f6e1a3 261-317
+.gitignore
+  s_90cd5e9461661c::t_67ea9c2588af6a 6-7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "2405604cc63fcb6a8e55ebf5ed2dbe8f61907095",
+  "prompts": {},
+  "sessions": {
+    "s_90cd5e9461661c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "339ff7cb-7d45-498f-8916-3c2f0d202822",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Artur Arapov <art87able@gmail.com>"
+    }
+  }
+}
