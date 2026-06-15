@@ -607,6 +607,65 @@ def test_patterns_html_uses_last_five_records_chronologically() -> None:
     )
 
 
+def test_make_history_entry_shape() -> None:
+    entry = app.make_history_entry(
+        "clean kitchen",
+        [0.1, 0.2],
+        [{"text": "Grab a bag", "category": "admin", "est_minutes": 2}],
+    )
+
+    assert entry == {
+        "text": "clean kitchen",
+        "embedding": [0.1, 0.2],
+        "breakdown": [{"text": "Grab a bag", "category": "admin", "est_minutes": 2}],
+        "durations": [],
+        "dismissals": 0,
+    }
+
+
+def test_history_from_data_defaults_to_empty() -> None:
+    assert app._history_from_data({"records": [], "plan": None}) == []
+    assert app._history_from_data(None) == []
+
+
+def test_with_history_returns_new_data_without_mutating() -> None:
+    data = {"records": [], "plan": None, "history": []}
+    history = [app.make_history_entry("t", [1.0], [])]
+
+    updated = app.with_history(data, history)
+
+    assert updated["history"] == history
+    assert data["history"] == []
+
+
+def test_bump_dismissal_increments_one_entry() -> None:
+    history = [
+        app.make_history_entry("a", [1.0], []),
+        app.make_history_entry("b", [0.0], []),
+    ]
+
+    updated = app.bump_dismissal(history, 1)
+
+    assert updated[1]["dismissals"] == 1
+    assert updated[0]["dismissals"] == 0
+    assert history[1]["dismissals"] == 0  # original untouched
+
+
+def test_bump_dismissal_out_of_range_returns_copy_unchanged() -> None:
+    history = [app.make_history_entry("a", [1.0], [])]
+
+    assert app.bump_dismissal(history, 9) == history
+
+
+def test_record_duration_in_history_appends_to_entry() -> None:
+    history = [app.make_history_entry("a", [1.0], [])]
+
+    updated = app.record_duration_in_history(history, 0, "admin", 12)
+
+    assert updated[0]["durations"] == [{"category": "admin", "actual_minutes": 12}]
+    assert history[0]["durations"] == []  # original untouched
+
+
 def test_plan_markdown_mixed_rows_golden() -> None:
     rows = [
         {

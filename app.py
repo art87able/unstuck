@@ -154,6 +154,61 @@ def make_record(
     }
 
 
+def make_history_entry(
+    text: str, embedding: list[float], breakdown: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Build a recall-history entry for one completed/created task."""
+    return {
+        "text": text,
+        "embedding": list(embedding),
+        "breakdown": [
+            {
+                "text": str(step["text"]),
+                "category": str(step["category"]),
+                "est_minutes": int(step["est_minutes"]),
+            }
+            for step in breakdown
+        ],
+        "durations": [],
+        "dismissals": 0,
+    }
+
+
+def _history_from_data(data: dict | None) -> list[dict[str, Any]]:
+    """Return the recall history from BrowserState, or empty if absent/malformed."""
+    if not isinstance(data, dict):
+        return []
+    history = data.get("history")
+    return history if isinstance(history, list) else []
+
+
+def with_history(data: dict, history: list[dict[str, Any]]) -> dict:
+    """Return a copy of BrowserState data with the recall history replaced."""
+    return {**data, "history": history}
+
+
+def bump_dismissal(
+    history: list[dict[str, Any]], index: int
+) -> list[dict[str, Any]]:
+    """Return a copy of history with entry[index]'s dismissals incremented by one."""
+    updated = [dict(entry) for entry in history]
+    if 0 <= index < len(updated):
+        updated[index]["dismissals"] = int(updated[index].get("dismissals", 0)) + 1
+    return updated
+
+
+def record_duration_in_history(
+    history: list[dict[str, Any]], index: int, category: str, actual_minutes: int
+) -> list[dict[str, Any]]:
+    """Return a copy of history with one real duration appended to entry[index]."""
+    updated = [dict(entry) for entry in history]
+    if 0 <= index < len(updated):
+        durations = list(updated[index].get("durations", []))
+        durations.append({"category": category, "actual_minutes": int(actual_minutes)})
+        updated[index]["durations"] = durations
+    return updated
+
+
 def undo_row(rows: list[dict], step_id: int) -> list[dict]:
     """Return rows with one resolved step restored to unresolved state."""
     undone = []
