@@ -35,8 +35,10 @@ class Unstuck:
         self.adapter = ModelAdapter(generate, max_repairs=max_repairs)
         self.store = store
 
-    def breakdown(self, task: str, granularity: str = "regular") -> BreakdownView:
-        steps = self.adapter.breakdown(task, granularity)
+    def breakdown(
+        self, task: str, granularity: str = "regular", exemplar: str | None = None
+    ) -> BreakdownView:
+        steps = self.adapter.breakdown(task, granularity, exemplar=exemplar)
         task_id = self.store.add_task(task)
         self.store.add_steps(task_id, steps.steps)
 

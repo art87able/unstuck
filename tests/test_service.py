@@ -42,3 +42,17 @@ def test_breakdown_passes_granularity_to_model_prompt() -> None:
     app.breakdown("write review", granularity="tiny")
 
     assert GRANULARITY_RULES["tiny"] in prompts[0]
+
+
+def test_breakdown_threads_exemplar_into_first_prompt() -> None:
+    prompts: list[str] = []
+
+    def generate(prompt: str) -> str:
+        prompts.append(prompt)
+        return GOOD
+
+    app = Unstuck(generate=generate, store=Store(":memory:"))
+
+    app.breakdown("write review", exemplar='Example: Task "old" -> {"steps":[]}')
+
+    assert 'Example: Task "old" -> {"steps":[]}' in prompts[0]

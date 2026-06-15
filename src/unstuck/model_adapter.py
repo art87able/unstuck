@@ -36,8 +36,10 @@ class ModelAdapter:
         self.generate = generate
         self.max_repairs = max_repairs
 
-    def breakdown(self, task: str, granularity: str = "regular") -> Steps:
-        raw = self.generate(breakdown_prompt(task, granularity))
+    def breakdown(
+        self, task: str, granularity: str = "regular", exemplar: str | None = None
+    ) -> Steps:
+        raw = self.generate(breakdown_prompt(task, granularity, exemplar))
 
         for attempt in range(self.max_repairs + 1):
             try:
