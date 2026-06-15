@@ -127,3 +127,61 @@ The seam kept paying off afterwards: `UNSTUCK_BACKEND` ended up selecting four i
 behind the same `generate()` — local ZeroGPU weights, HF serverless, Nebius Token Factory, and a
 fully-offline `llama.cpp` path — with no change to product logic, and the 153-test suite still
 running on canned strings with no GPU.
+
+### 8. One app, eight serving stacks — the seam vs. four sponsors
+
+The clearest proof that the `generate(prompt) -> str` seam was the right call: when the sponsor
+list landed (OpenBMB MiniCPM, NVIDIA Nemotron, Modal), covering each was a *config* change, not
+an architecture change. `UNSTUCK_BACKEND` grew to eight implementations behind one unchanged
+callable — and each new one shipped with a fully-mocked unit test, so the suite (183 green) never
+touched a network or a GPU.
+
+One non-obvious finding while wiring the sponsor models: **the small MiniCPM and Nemotron builds
+are not on HF's public inference providers** (`/api/models/<id>?expand[]=inferenceProviderMapping`
+returns an empty list; the router 400s). They *are* in the **Nebius Token Factory** catalog under
+the 32B cap (`openbmb/MiniCPM-V-4_5`, `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B`), so the backend
+defaults there. The seam meant pointing at them was a one-line env change, and both returned valid
+breakdowns on the first live call.
+
+### 9. Fine-tuning small, in the open
+
+The `welltuned` artifact is a real one: distill, train, publish, wire in.
+
+- **Distill, don't annotate.** 130 training pairs came from running the *strong* teacher
+  (`Qwen3-30B-A3B` on Nebius) through Unstuck's own breakdown prompt across 44 tasks × 3
+  granularities, then **filtering every output through the app's validator** — so the dataset is
+  on-contract by construction, never hand-labelled. Published as
+  [`unstuck-sft-breakdowns`](https://huggingface.co/datasets/art87able/unstuck-sft-breakdowns).
+- **Train on Modal, skip the framework churn.** A LoRA on `Qwen2.5-0.5B-Instruct`, A10G, ~3
+  minutes, final loss 0.21. I wrote a plain PyTorch loop instead of reaching for `trl` — the
+  training is trivial enough that pinning `transformers`/`peft` and owning the loop beat betting on
+  a trainer API that breaks between minor versions. Published merged:
+  [`unstuck-qwen2.5-0.5b-steps`](https://huggingface.co/art87able/unstuck-qwen2.5-0.5b-steps).
+- **A 0.5B model holds the contract.** The tuned model produces schema-valid breakdowns at 60×
+  fewer parameters than the teacher — good enough to become the app's **always-on local fallback**
+  (no GPU quota, no key, no network), turning the resilience chain into ZeroGPU → HF serverless →
+  local fine-tune. Modal also *serves* it on a web endpoint (`UNSTUCK_BACKEND=modal`), so "Modal"
+  is both how it was trained and a way it's served.
+
+A wall worth recording: **Nebius's fine-tuning API exists** (`/v1/files` + `/v1/fine_tuning/jobs`
+both 200) but job creation 500s for every base model I tried — the account doesn't appear to have
+fine-tuning enabled. So the "serve the adapter serverless on Nebius" plan became "serve it
+serverless on Modal" instead. Same goal, different sponsor.
+
+### 10. Publish the negative result
+
+A backend bake-off — every model driven through the *exact* breakdown contract via the same
+`ModelAdapter`, scored by the app's validator — turned up an honest surprise:
+
+| Model (Nebius serverless) | Valid / 5 | Avg latency |
+|---|---|---|
+| Qwen3-30B-A3B (teacher) | 5/5 | 2.9s |
+| MiniCPM-V-4.5 | 5/5 | 0.8s |
+| Nemotron-3-Nano-30B (reasoning) | **0/5** | 41.8s |
+
+The 30B Nemotron is a *reasoning* model: its think-tokens overrun the 512-token budget and the
+JSON never closes. `"detailed thinking off"` only salvaged 1/5. The fix wasn't a prompt hack — it
+was picking the right tool: **`nvidia/Nemotron-Mini-4B-Instruct`** (non-reasoning, 4B) scored
+**5/5** on Modal. I left the 0/5 row in the public README. A bake-off that only printed the
+winner would have hidden the most useful sentence in it: *match the model class to the task, not
+just the parameter count.*
