@@ -1131,3 +1131,48 @@ def test_restored_banner_hidden_when_complete_or_empty() -> None:
     ]
     assert app.restored_banner_html(done) == ""
     assert app.restored_banner_html([]) == ""
+
+
+def test_break_down_uses_recall_exemplar_and_seeds_estimates() -> None:
+    """A pre-seeded history entry with a real 30-min admin duration should both
+    inject its breakdown as an exemplar AND seed the admin estimate to 30."""
+    prompts: list[str] = []
+
+    def fake_generate(prompt: str) -> str:
+        prompts.append(prompt)
+        return json.dumps(
+            {"steps": [{"text": "Open the inbox", "category": "admin", "est_minutes": 10}]}
+        )
+
+    service = Unstuck(generate=fake_generate, store=Store(":memory:"))
+    # Fake embed: identical vector for every task -> guaranteed cosine 1.0 match.
+    ui = app.build_ui(service, embed=lambda text: [1.0, 0.0])
+    ui.launch(prevent_thread_lock=True, server_port=7952, quiet=True)
+    try:
+        from gradio_client import Client
+
+        client = Client("http://127.0.0.1:7952", verbose=False)
+        history = [
+            {
+                "text": "tidy my inbox",
+                "embedding": [1.0, 0.0],
+                "breakdown": [
+                    {"text": "Open the inbox", "category": "admin", "est_minutes": 10}
+                ],
+                "durations": [{"category": "admin", "actual_minutes": 30}],
+                "dismissals": 0,
+            }
+        ]
+        res = client.predict(
+            "clear my email backlog",
+            {"records": [], "plan": None, "history": history},
+            "regular",
+            api_name="/break_down",
+        )
+        summary = next(r for r in res if isinstance(r, str) and "summary" in r)
+        # Seeded "for you" estimate is the matched task's real 30 min, not 10.
+        assert "~30 min total" in summary
+        # The exemplar (a recalled Example line) reached the model prompt.
+        assert any("Example: Task \"tidy my inbox\"" in p for p in prompts)
+    finally:
+        ui.close()

@@ -18,7 +18,9 @@ if str(SRC) not in sys.path:
 
 import gradio as gr
 
+from unstuck import embeddings, recall
 from unstuck.calibration import calibrate, multiplier
+from unstuck.prompts import format_exemplar
 from unstuck.service import BreakdownView, Unstuck
 from unstuck.store import Store
 
@@ -530,6 +532,15 @@ def restored_banner_html(rows: list[dict]) -> str:
     )
 
 
+def recall_banner_html(matched_task: str) -> str:
+    """Banner shown when a breakdown was shaped by a recalled similar task."""
+    safe = html.escape(matched_task)
+    return (
+        '<div class="recall-banner">Shaped by a similar task you did before: '
+        f'<em>{safe}</em></div>'
+    )
+
+
 def restore_snapshot(
     data: dict, readout: Callable[[list[dict[str, Any]]], str]
 ) -> tuple[list[dict[str, Any]], str, str, str, Any]:
@@ -667,8 +678,12 @@ def splice_rows(
     return spliced if found else rows
 
 
-def build_ui(service: Unstuck) -> gr.Blocks:
+def build_ui(
+    service: Unstuck,
+    embed: Callable[[str], list[float] | None] | None = None,
+) -> gr.Blocks:
     """Build the Gradio UI around an injected Unstuck service."""
+    embed_fn = embed if embed is not None else embeddings.embed
 
     def view_rows(view: BreakdownView) -> list[dict[str, Any]]:
         return [
@@ -736,7 +751,7 @@ def build_ui(service: Unstuck) -> gr.Blocks:
 
     def break_down(
         task: str, data: dict, granularity: str
-    ) -> tuple[list[dict[str, Any]], str, str, str, dict, None]:
+    ) -> tuple[list[dict[str, Any]], str, str, str, dict, None, str, dict | None]:
         clean_task = task.strip()
         records = _records_from_data(data)
         if not clean_task:
@@ -748,11 +763,19 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                 patterns(records),
                 updated,
                 None,
+                "",
+                None,
             )
+        vector = embed_fn(clean_task)
+        match = recall.select(vector, _history_from_data(data))
+        exemplar = (
+            format_exemplar(match.entry["text"], match.entry["breakdown"])
+            if match is not None
+            else None
+        )
         try:
-            rows = recalibrated(
-                view_rows(service.breakdown(clean_task, granularity)), records
-            )
+            view = service.breakdown(clean_task, granularity, exemplar=exemplar)
+            rows = recalibrated(view_rows(view), records)
         except Exception:
             gr.Warning("The model backend is busy. Try again in a minute.")
             updated = persist(data, clean_task, [])
@@ -765,8 +788,34 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                 patterns(records),
                 updated,
                 None,
+                "",
+                None,
             )
-        updated = persist(data, clean_task, rows)
+
+        banner = ""
+        recall_pointer = None
+        if match is not None:
+            rows = recall.seed_estimates(rows, match.entry)
+            banner = recall_banner_html(match.entry["text"])
+            recall_pointer = match.index
+
+        history = _history_from_data(data)
+        new_index = len(history)
+        history = history + [
+            make_history_entry(
+                clean_task,
+                vector or [],
+                [
+                    {
+                        "text": row["text"],
+                        "category": row["category"],
+                        "est_minutes": row["raw_minutes"],
+                    }
+                    for row in rows
+                ],
+            )
+        ]
+        updated = with_history(persist(data, clean_task, rows), history)
         return (
             rows,
             readout(records),
@@ -774,6 +823,9 @@ def build_ui(service: Unstuck) -> gr.Blocks:
             patterns(records),
             updated,
             None,
+            banner,
+            {"history_index": new_index, "dismiss_index": recall_pointer,
+             "task": clean_task, "granularity": granularity},
         )
 
     def new_plan_ui(
@@ -1148,6 +1200,8 @@ def build_ui(service: Unstuck) -> gr.Blocks:
             cache_examples=False,
         )
         readout_output = gr.HTML()
+        recall_banner_output = gr.HTML()
+        recall_state = gr.State(None)
         summary_output = gr.HTML()
         with gr.Accordion("Your patterns", open=False):
             patterns_output = gr.HTML()
@@ -1404,6 +1458,8 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                 patterns_output,
                 user_data,
                 editing_step_id,
+                recall_banner_output,
+                recall_state,
             ],
         )
         new_plan_button.click(
@@ -1429,6 +1485,8 @@ def build_ui(service: Unstuck) -> gr.Blocks:
                 patterns_output,
                 user_data,
                 editing_step_id,
+                recall_banner_output,
+                recall_state,
             ],
         )
         add_button.click(
