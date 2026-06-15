@@ -54,8 +54,9 @@ The codebase keeps the model boundary as one env-selected seam with mocked, netw
 **Changes to existing files (small, additive — preserve current behaviour when there is no match):**
 
 - `prompts.py` — `breakdown_prompt(task, granularity, exemplar=None)` gains an optional `exemplar` slot that injects the matched task's past breakdown as **one** extra few-shot example after the static `EXAMPLES`. `exemplar=None` → byte-for-byte today's prompt.
-- `service.py` — `Service.breakdown(...)` orchestrates the loop: `embed` → `recall.select` → if matched, build the exemplar prompt and seed estimates; else call today's path unchanged. The `Service` is already the layer that ties model → store → calibration, so this is its natural home.
-- `store.py` / BrowserState record — each task record gains two fields: `embedding: list[float]` and `dismissals: int` (default `0`). Export/import (`store.export_json` / import) carry them through; importing older records without the fields treats them as `embedding: None` (never matched) / `dismissals: 0`.
+- `service.py` + `model_adapter.py` — `breakdown(...)` gains an optional `exemplar` **passthrough** param threaded down to `breakdown_prompt`. These layers do *not* orchestrate recall. (Refined from the original draft: orchestration moved to the handler — see next bullet — because that is where `gr.BrowserState` lives and where breakdown + recalibration already run.)
+- **`app.py` `break_down` handler orchestrates the loop** (`embed` → `recall.select` → exemplar prompt + estimate seeding + banner; else today's path unchanged). The per-session SQLite `Store` is not recall's home: `Store.import_json` only round-trips calibration *records* (category/est/actual), not task text + breakdowns.
+- **History persists as a new `gr.BrowserState` key** — `data["history"]`, a list of entries `{text, embedding, breakdown, durations, dismissals}`, mirroring the existing `records` / `plan` keys with pure helpers (`make_history_entry`, `with_history`, `_history_from_data`, `bump_dismissal`). The BrowserState default becomes `{"records": [], "plan": None, "history": []}`; older saved state without the key is treated as empty history.
 
 ## 4. Data flow (one paste)
 
