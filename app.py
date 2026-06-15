@@ -28,27 +28,46 @@ THEME = gr.themes.Base(
     neutral_hue="stone",
     font=[gr.themes.GoogleFont("Inter"), "system-ui", "sans-serif"],
 ).set(
-    body_background_fill="#faf9f7",
+    body_background_fill="#f7f5f1",
     block_background_fill="#ffffff",
     block_border_width="0px",
-    block_shadow="0 1px 3px rgba(40, 35, 60, 0.07)",
-    button_primary_background_fill="#4f46e5",
-    button_primary_background_fill_hover="#4338ca",
+    block_shadow="0 1px 3px rgba(40, 35, 60, 0.06)",
+    button_primary_background_fill="linear-gradient(135deg, #4f46e5, #6366f1)",
+    button_primary_background_fill_hover="linear-gradient(135deg, #4338ca, #4f46e5)",
     button_primary_text_color="#ffffff",
-    block_radius="14px",
-    button_large_radius="10px",
+    button_primary_shadow="0 2px 10px rgba(79, 70, 229, 0.28)",
+    button_secondary_background_fill="#ffffff",
+    button_secondary_border_color="#e7e2d9",
+    block_radius="16px",
+    button_large_radius="12px",
+    input_background_fill="#ffffff",
+    input_border_color="#e7e2d9",
+    input_border_color_focus="#4f46e5",
 )
 
 CSS = """
-.gradio-container { max-width: 760px !important; margin: 0 auto !important; }
-#hero { text-align: center; padding: 1.4rem 0 0.2rem; }
-#hero h1 { font-size: 2rem; margin: 0; letter-spacing: -0.02em; color: #1c1917; }
-#hero p { color: #78716c; margin: 0.4rem 0 0; font-size: 1.02rem; }
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap');
+/* off-brand polish — a distinct identity, well past the default Gradio look */
+.gradio-container { max-width: 760px !important; margin: 0 auto !important;
+  background: radial-gradient(1100px 380px at 50% -120px, #ecebff 0%, rgba(236,235,255,0) 70%), #f7f5f1 !important; }
+button { transition: transform .12s ease, box-shadow .12s ease, filter .12s ease !important; }
+button:hover { transform: translateY(-1px); }
+textarea:focus, input:focus { outline: none !important; border-color: #4f46e5 !important;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15) !important; }
+footer, .built-with, a[href*="gradio.app"] { display: none !important; }
+#hero { text-align: center; padding: 1.6rem 0 0.2rem; }
+#hero h1 { font-family: 'Fraunces', Georgia, serif; font-size: 2.5rem; font-weight: 600; margin: 0; letter-spacing: -0.01em;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 55%, #9333ea 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent; }
+#hero p { color: #78716c; margin: 0.45rem 0 0; font-size: 1.04rem; }
 #steps-list { display: flex; flex-direction: column; gap: 10px; }
 .step-card { display: flex; align-items: center; gap: 14px; min-width: 0; background: #fff;
-  border: 1px solid #eee9e2; border-radius: 12px; padding: 12px 16px;
-  box-shadow: 0 1px 2px rgba(40, 35, 60, 0.05); }
-.step-next { border-color:#4f46e5; box-shadow:0 2px 8px rgba(79,70,229,0.18); }
+  border: 1px solid #eee9e2; border-radius: 14px; padding: 12px 16px;
+  box-shadow: 0 1px 2px rgba(40, 35, 60, 0.05);
+  transition: box-shadow .15s ease, transform .15s ease, border-color .15s ease; }
+.step-card:hover { box-shadow: 0 4px 14px rgba(40, 35, 60, 0.09); }
+.step-next { border-color:#4f46e5; box-shadow:0 6px 20px rgba(79,70,229,0.22);
+  background: linear-gradient(180deg, #fbfaff 0%, #ffffff 60%); }
 .step-next .step-num { background:#4f46e5; color:#fff; }
 .step-later { opacity:0.55; }
 .step-skipped { opacity:0.45; }

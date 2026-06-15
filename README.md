@@ -54,6 +54,20 @@ What it does beyond a breakdown bot: a built-in step timer (Start → Done measu
 
 **Model:** `Qwen/Qwen3-4B-Instruct-2507` (4B — within the Tiny Titan ≤4B bar). **Built small, in the open** with OpenAI Codex (Codex-attributed commits) and an honest deterministic calibration layer — no AI in the differentiator.
 
+## Badges & bonus quests — the evidence
+
+| Badge / track | Claim | Evidence |
+|---|---|---|
+| 🏡 **Backyard AI** (track) | A real anti-overwhelm tool for ADHD time-blindness | the whole app: tiny timed steps + honest per-category calibration |
+| 🪶 **Tiny Titan** (≤4B) | Runs on a genuinely tiny model | default model `Qwen/Qwen3-4B-Instruct-2507` (4 B) |
+| 🔌 **Off the Grid** (local-first) | No cloud APIs — runs on the model in front of you | `UNSTUCK_BACKEND=offgrid` → local GGUF, zero network (`src/unstuck/backend.py`); see *Run fully offline* below |
+| 🦙 **Llama Champion** (llama.cpp) | Model runs through the llama.cpp runtime | the `offgrid` backend drives a GGUF via `llama-cpp-python` |
+| 🧾 **Sharing is Caring** (open trace) | Agent trace shared on the Hub | [unstuck-agent-trace dataset](https://huggingface.co/datasets/build-small-hackathon/unstuck-agent-trace) |
+| 🎨 **Off-Brand** (custom UI) | A frontend that pushes past the default Gradio look | custom `gr.themes` theme + a Fraunces gradient wordmark, gradient buttons, layered/hover step cards, indigo focus rings, fully de-branded chrome (see `THEME`/`CSS` in `app.py`) |
+| 📝 **Field Notes** | A write-up of what we built and learned | [field notes](https://github.com/art87able/unstuck/blob/main/docs/field-notes.md) |
+| 🤖 **sponsor:openai** (Codex) | Codex-attributed commits in the repo | built with the OpenAI Codex CLI — commit trail + the [agent-trace dataset](https://huggingface.co/datasets/build-small-hackathon/unstuck-agent-trace) |
+| 🏅 **Bonus Quest Champion** | Most bonus criteria met | the eight rows above, each genuinely earned |
+
 ## Run locally
 
 ```bash
