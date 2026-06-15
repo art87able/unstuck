@@ -218,5 +218,36 @@ elif BACKEND == "offgrid":
         )
         return str(response["choices"][0]["message"]["content"])
 
+elif BACKEND == "finetuned":
+    import torch
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
+    # A small Qwen2.5-0.5B LoRA-fine-tuned on Unstuck's own distilled breakdowns
+    # and published to the Hub (the honest basis for the achievement:welltuned
+    # badge). Trained on Modal GPU — see scripts/finetune/. Runs locally on
+    # CPU/MPS/CUDA; no serverless dependency.
+    FINETUNED_MODEL = os.environ.get(
+        "FINETUNED_MODEL", "art87able/unstuck-qwen2.5-0.5b-steps"
+    )
+    _ft_tokenizer = AutoTokenizer.from_pretrained(FINETUNED_MODEL)
+    _ft_model = AutoModelForCausalLM.from_pretrained(
+        FINETUNED_MODEL, torch_dtype="auto"
+    )
+
+    def generate(prompt: str) -> str:
+        """Generate via the published fine-tuned Unstuck model (local weights)."""
+        text = _ft_tokenizer.apply_chat_template(
+            [{"role": "user", "content": prompt}],
+            add_generation_prompt=True,
+            tokenize=False,
+        )
+        inputs = _ft_tokenizer(text, return_tensors="pt").to(_ft_model.device)
+        with torch.no_grad():
+            output_ids = _ft_model.generate(
+                **inputs, max_new_tokens=512, do_sample=TEMPERATURE > 0
+            )
+        generated = output_ids[0][inputs["input_ids"].shape[-1] :]
+        return str(_ft_tokenizer.decode(generated, skip_special_tokens=True))
+
 else:
     raise ValueError(f"unsupported UNSTUCK_BACKEND: {BACKEND}")

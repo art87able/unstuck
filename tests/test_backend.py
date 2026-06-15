@@ -321,6 +321,68 @@ def test_nemotron_backend_passes_nemotron_model(
     assert calls["chat_completion_kwargs"]["model"] == backend.NEMOTRON_MODEL
 
 
+def test_finetuned_backend_loads_published_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import contextlib
+
+    loaded: dict[str, object] = {}
+
+    class _Ids:
+        def __getitem__(self, key: object) -> "_Ids":
+            return self
+
+        @property
+        def shape(self) -> tuple[int, int]:
+            return (1, 3)
+
+    class _Inputs(dict):
+        def to(self, _device: object) -> "_Inputs":
+            return self
+
+    class FakeTok:
+        def apply_chat_template(self, _messages: object, **_kw: object) -> str:
+            return "CHAT"
+
+        def __call__(self, _text: object, **_kw: object) -> _Inputs:
+            return _Inputs(input_ids=_Ids())
+
+        def decode(self, _ids: object, **_kw: object) -> str:
+            return '{"steps":[{"text":"Open the inbox","category":"admin","est_minutes":5}]}'
+
+    class FakeModel:
+        device = "cpu"
+
+        def generate(self, **_kw: object) -> _Ids:
+            return _Ids()
+
+    class FakeAutoTokenizer:
+        @staticmethod
+        def from_pretrained(name: str, **_kw: object) -> FakeTok:
+            loaded["tokenizer"] = name
+            return FakeTok()
+
+    class FakeAutoModel:
+        @staticmethod
+        def from_pretrained(name: str, **_kw: object) -> FakeModel:
+            loaded["model"] = name
+            return FakeModel()
+
+    fake_torch = types.ModuleType("torch")
+    fake_torch.no_grad = contextlib.nullcontext  # type: ignore[attr-defined]
+    fake_tf = types.ModuleType("transformers")
+    fake_tf.AutoTokenizer = FakeAutoTokenizer  # type: ignore[attr-defined]
+    fake_tf.AutoModelForCausalLM = FakeAutoModel  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "torch", fake_torch)
+    monkeypatch.setitem(sys.modules, "transformers", fake_tf)
+    monkeypatch.setenv("UNSTUCK_BACKEND", "finetuned")
+
+    backend = reload_backend(monkeypatch)
+
+    assert loaded["model"] == backend.FINETUNED_MODEL == "art87able/unstuck-qwen2.5-0.5b-steps"
+    assert backend.generate("break this down").startswith('{"steps"')
+
+
 def test_unknown_backend_raises_value_error(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("UNSTUCK_BACKEND", "bogus")
 
