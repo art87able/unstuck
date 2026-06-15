@@ -93,6 +93,8 @@ Verified locally — here it is generating a plan with **no network**, entirely 
 
 ![Unstuck running fully offline on a local GGUF via llama.cpp](docs/offgrid-proof.png)
 
+Reproducible transcript (env → local `.gguf` load → model output, no network): [`docs/offgrid-proof.log`](https://github.com/art87able/unstuck/blob/main/docs/offgrid-proof.log).
+
 Your history lives in your browser. Use the in-app **Export**/**Import** buttons to move it between devices.
 
 Source: https://github.com/art87able/unstuck (Codex Track)

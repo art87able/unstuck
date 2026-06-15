@@ -1,0 +1,23 @@
+llama_context: n_ctx_seq (4096) < n_ctx_train (262144) -- the full capacity of the model will not be utilized
+UNSTUCK_BACKEND = offgrid
+OFFGRID_GGUF_PATH = ~/github/unstuck/models/Qwen3-4B-Instruct-2507-Q4_K_M.gguf
+generate() defined in module: unstuck.backend
+
+
+=== OUTPUT FROM THE LOCAL MODEL ===
+{
+  "steps": [
+    {
+      "text": "Clear all items from the desk and sort them into 'keep', 'return', and 'discard' piles.",
+      "minutes": 3
+    },
+    {
+      "text": "Organize the 'keep' items by category (e.g., documents, supplies, devices) and place them in designated spots.",
+      "minutes": 4
+    },
+    {
+      "text": "Clean the desk surface with a cloth and wipe away dust; finally, place a fresh notepad and pen in a visible spot.",
+      "minutes": 3
+    }
+  ]
+}
