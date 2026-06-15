@@ -1,0 +1,29 @@
+src/unstuck/backend.py
+  s_90cd5e9461661c::t_9a56451c5c00a1 221-251
+scripts/finetune/modal_verify.py
+  s_90cd5e9461661c::t_4679c197356b5c 1-55
+scripts/finetune/modal_finetune.py
+  s_90cd5e9461661c::t_4fa2a873d8b5b8 1-15,17-18,20-120,122-131
+  s_90cd5e9461661c::t_8857db74096260 121
+  s_90cd5e9461661c::t_da613ebc9245b4 16,19
+scripts/finetune/gen_dataset.py
+  s_90cd5e9461661c::t_f16f371c1dfa4c 1-112
+tests/test_backend.py
+  s_90cd5e9461661c::t_28201f78537f68 324-385
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "c8ea1913264625a31e68087f637e546cec032c68",
+  "prompts": {},
+  "sessions": {
+    "s_90cd5e9461661c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "339ff7cb-7d45-498f-8916-3c2f0d202822",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Artur Arapov <art87able@gmail.com>"
+    }
+  }
+}
