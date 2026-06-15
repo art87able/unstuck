@@ -1,0 +1,26 @@
+tests/test_backend.py
+  s_90cd5e9461661c::t_3a925712f6e1a3 261-285,287-318
+  s_90cd5e9461661c::t_f19295358931b2 286
+.gitignore
+  s_90cd5e9461661c::t_67ea9c2588af6a 6-7
+src/unstuck/backend.py
+  s_90cd5e9461661c::t_2c331cc4358687 172-175
+  s_90cd5e9461661c::t_d3422e9c825e31 142-144,150,158-159,161,163-171,176-195
+  s_90cd5e9461661c::t_b03294e3e15844 145-149,151-157,160,162
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "e86f28ae9af7633d427d00544c8bce65d696e70d",
+  "prompts": {},
+  "sessions": {
+    "s_90cd5e9461661c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "339ff7cb-7d45-498f-8916-3c2f0d202822",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": null
+    }
+  }
+}
