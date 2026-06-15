@@ -142,22 +142,23 @@ elif BACKEND == "nebius":
 elif BACKEND == "minicpm":
     from huggingface_hub import InferenceClient
 
-    # OpenBMB MiniCPM — a small (<32B) instruct model. The seam is unchanged: the
-    # same generate(prompt) -> str runs on MiniCPM weights instead of Qwen. NOTE:
-    # as of 2026-06 no public HF Inference Provider serves MiniCPM, so point
-    # MINICPM_BASE_URL at an OpenAI-compatible host that hosts it (self-hosted vLLM,
-    # a NIM, etc.); the bare HF router default will 400 until a provider lists it.
-    MINICPM_MODEL = os.environ.get("MINICPM_MODEL", "openbmb/MiniCPM3-4B")
-    MINICPM_BASE_URL = os.environ.get("MINICPM_BASE_URL")
-    if MINICPM_BASE_URL:
-        client = InferenceClient(
-            base_url=MINICPM_BASE_URL, api_key=os.environ.get("MINICPM_API_KEY")
+    # OpenBMB MiniCPM — a small (<32B) model. The seam is unchanged: the same
+    # generate(prompt) -> str runs on MiniCPM instead of Qwen. Served serverless
+    # through Nebius Token Factory by default (verified: openbmb/MiniCPM-V-4_5),
+    # or any OpenAI-compatible host via MINICPM_BASE_URL + MINICPM_API_KEY.
+    MINICPM_MODEL = os.environ.get("MINICPM_MODEL", "openbmb/MiniCPM-V-4_5")
+    MINICPM_BASE_URL = os.environ.get("MINICPM_BASE_URL", NEBIUS_BASE_URL)
+    MINICPM_API_KEY = os.environ.get("MINICPM_API_KEY") or os.environ.get(
+        "NEBIUS_API_KEY"
+    )
+    if not MINICPM_API_KEY:
+        raise RuntimeError(
+            "MINICPM_API_KEY or NEBIUS_API_KEY is required for the minicpm backend"
         )
-    else:
-        client = InferenceClient(MINICPM_MODEL, token=os.environ.get("HF_TOKEN"))
+    client = InferenceClient(base_url=MINICPM_BASE_URL, api_key=MINICPM_API_KEY)
 
     def generate(prompt: str) -> str:
-        """Generate through an OpenBMB MiniCPM model."""
+        """Generate through an OpenBMB MiniCPM model (Nebius serverless by default)."""
         response = client.chat_completion(
             model=MINICPM_MODEL,
             messages=[{"role": "user", "content": prompt}],
@@ -169,23 +170,25 @@ elif BACKEND == "minicpm":
 elif BACKEND == "nemotron":
     from huggingface_hub import InferenceClient
 
-    # NVIDIA Nemotron — a small (<32B) instruct model. Same seam. NOTE: as of
-    # 2026-06 the small Nemotron models aren't on public HF Inference Providers, so
-    # point NEMOTRON_BASE_URL at an OpenAI-compatible host (e.g. NVIDIA NIM /
-    # build.nvidia.com); the bare HF router default will reject it until then.
+    # NVIDIA Nemotron — a small (<32B) model. Same seam. Served serverless through
+    # Nebius Token Factory by default (verified: nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B,
+    # a 30B-A3B MoE under the cap), or any OpenAI-compatible host (e.g. NVIDIA NIM /
+    # build.nvidia.com) via NEMOTRON_BASE_URL + NEMOTRON_API_KEY.
     NEMOTRON_MODEL = os.environ.get(
-        "NEMOTRON_MODEL", "nvidia/Nemotron-Mini-4B-Instruct"
+        "NEMOTRON_MODEL", "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"
     )
-    NEMOTRON_BASE_URL = os.environ.get("NEMOTRON_BASE_URL")
-    if NEMOTRON_BASE_URL:
-        client = InferenceClient(
-            base_url=NEMOTRON_BASE_URL, api_key=os.environ.get("NEMOTRON_API_KEY")
+    NEMOTRON_BASE_URL = os.environ.get("NEMOTRON_BASE_URL", NEBIUS_BASE_URL)
+    NEMOTRON_API_KEY = os.environ.get("NEMOTRON_API_KEY") or os.environ.get(
+        "NEBIUS_API_KEY"
+    )
+    if not NEMOTRON_API_KEY:
+        raise RuntimeError(
+            "NEMOTRON_API_KEY or NEBIUS_API_KEY is required for the nemotron backend"
         )
-    else:
-        client = InferenceClient(NEMOTRON_MODEL, token=os.environ.get("HF_TOKEN"))
+    client = InferenceClient(base_url=NEMOTRON_BASE_URL, api_key=NEMOTRON_API_KEY)
 
     def generate(prompt: str) -> str:
-        """Generate through an NVIDIA Nemotron model."""
+        """Generate through an NVIDIA Nemotron model (Nebius serverless by default)."""
         response = client.chat_completion(
             model=NEMOTRON_MODEL,
             messages=[{"role": "user", "content": prompt}],

@@ -265,7 +265,7 @@ def test_minicpm_backend_uses_minicpm_model(
 
     class FakeInferenceClient:
         def __init__(self, *args: object, **kwargs: object) -> None:
-            calls["init_args"] = args
+            calls["init_kwargs"] = kwargs
 
         def chat_completion(self, **kwargs: object) -> object:
             calls["chat_completion_kwargs"] = kwargs
@@ -277,11 +277,15 @@ def test_minicpm_backend_uses_minicpm_model(
     fake_hub.InferenceClient = FakeInferenceClient
     monkeypatch.setitem(sys.modules, "huggingface_hub", fake_hub)
     monkeypatch.setenv("UNSTUCK_BACKEND", "minicpm")
+    monkeypatch.setenv("NEBIUS_API_KEY", "dummy")
 
     backend = reload_backend(monkeypatch)
 
     assert backend.generate("hi") == "ok"
-    assert calls["init_args"][0] == backend.MINICPM_MODEL
+    assert calls["init_kwargs"] == {
+        "base_url": backend.MINICPM_BASE_URL,
+        "api_key": "dummy",
+    }
     assert calls["chat_completion_kwargs"] == {
         "model": backend.MINICPM_MODEL,
         "messages": [{"role": "user", "content": "hi"}],
@@ -309,6 +313,7 @@ def test_nemotron_backend_passes_nemotron_model(
     fake_hub.InferenceClient = FakeInferenceClient
     monkeypatch.setitem(sys.modules, "huggingface_hub", fake_hub)
     monkeypatch.setenv("UNSTUCK_BACKEND", "nemotron")
+    monkeypatch.setenv("NEBIUS_API_KEY", "dummy")
 
     backend = reload_backend(monkeypatch)
 
