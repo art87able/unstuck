@@ -83,6 +83,40 @@ if BACKEND == "zerogpu":
         decoded = str(tokenizer.decode(generated_ids, skip_special_tokens=True))
         return JSON_PREFILL + decoded
 
+    # Always-available last resort: the published 0.5B fine-tune, run locally on
+    # CPU — no GPU quota, no API key, no network beyond the one-time weight pull.
+    # Guarantees a judge always gets a plan even if ZeroGPU quota is exhausted.
+    FT_FALLBACK_MODEL = os.environ.get(
+        "FT_FALLBACK_MODEL", "art87able/unstuck-qwen2.5-0.5b-steps"
+    )
+    _ft_fallback_state: Any | None = None
+
+    def _finetuned_fallback(prompt: str) -> str:
+        """Generate locally via the published fine-tune (CPU, no quota, no key)."""
+        global _ft_fallback_state
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+
+        if _ft_fallback_state is None:
+            ft_tok = AutoTokenizer.from_pretrained(FT_FALLBACK_MODEL)
+            ft_model = AutoModelForCausalLM.from_pretrained(
+                FT_FALLBACK_MODEL, torch_dtype="auto"
+            )
+            _ft_fallback_state = (ft_tok, ft_model)
+        ft_tok, ft_model = _ft_fallback_state
+        text = ft_tok.apply_chat_template(
+            [{"role": "user", "content": prompt}],
+            add_generation_prompt=True,
+            tokenize=False,
+        )
+        inputs = ft_tok(text, return_tensors="pt").to(ft_model.device)
+        with torch.no_grad():
+            out = ft_model.generate(**inputs, max_new_tokens=512, do_sample=False)
+        return str(
+            ft_tok.decode(
+                out[0][inputs["input_ids"].shape[-1] :], skip_special_tokens=True
+            )
+        )
+
     HF_TOKEN = os.environ.get("HF_TOKEN")
     if HF_TOKEN:
         _serverless_client: Any | None = None
@@ -102,9 +136,12 @@ if BACKEND == "zerogpu":
             )
             return str(response.choices[0].message.content)
 
-        generate = with_fallback(_gpu_generate, _serverless_fallback)
+        # ZeroGPU -> HF serverless -> local fine-tune: a three-tier resilience chain.
+        generate = with_fallback(
+            _gpu_generate, with_fallback(_serverless_fallback, _finetuned_fallback)
+        )
     else:
-        generate = _gpu_generate
+        generate = with_fallback(_gpu_generate, _finetuned_fallback)
 
 elif BACKEND == "hf_inference":
     from huggingface_hub import InferenceClient
