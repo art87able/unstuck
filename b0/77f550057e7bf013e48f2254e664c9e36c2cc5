@@ -1,0 +1,29 @@
+scripts/finetune/nebius_finetune.py
+  s_90cd5e9461661c::t_1a081c88573674 1-90
+scripts/finetune/modal_nemotron_test.py
+  s_90cd5e9461661c::t_a148f338af2ce6 1-66
+scripts/finetune/modal_serve.py
+  s_90cd5e9461661c::t_f7daa599e92fd0 1-48
+tests/test_backend.py
+  s_90cd5e9461661c::t_597b3d07b6e0dd 386-416
+src/unstuck/backend.py
+  s_90cd5e9461661c::t_05c677a6fae5e4 289-302
+scripts/bakeoff.py
+  s_90cd5e9461661c::t_de1b13a3242dd4 1-10,13,15,22-23,25,35-39,45,49,59-81,85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "b077f550057e7bf013e48f2254e664c9e36c2cc5",
+  "prompts": {},
+  "sessions": {
+    "s_90cd5e9461661c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "339ff7cb-7d45-498f-8916-3c2f0d202822",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Artur Arapov <art87able@gmail.com>"
+    }
+  }
+}
