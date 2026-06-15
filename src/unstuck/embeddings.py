@@ -8,7 +8,7 @@ EMBED_BACKEND = os.environ.get("UNSTUCK_EMBED_BACKEND", "nebius")
 NEBIUS_EMBED_BASE_URL = os.environ.get(
     "NEBIUS_EMBED_BASE_URL", "https://api.tokenfactory.nebius.com/v1/"
 )
-NEBIUS_EMBED_MODEL = os.environ.get("NEBIUS_EMBED_MODEL", "Qwen/Qwen3-Embedding-0.6B")
+NEBIUS_EMBED_MODEL = os.environ.get("NEBIUS_EMBED_MODEL", "Qwen/Qwen3-Embedding-8B")
 _TIMEOUT = float(os.environ.get("UNSTUCK_EMBED_TIMEOUT", "10"))
 
 
