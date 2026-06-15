@@ -1171,7 +1171,7 @@ def build_ui(
         )
         with handle:
             handle.write(export_payload(records))
-        return handle.name, data
+        return gr.update(value=handle.name, visible=True), data
 
     def import_data(
         file: Any, task: str, rows: list[dict[str, Any]], data: dict
@@ -1520,7 +1520,7 @@ def build_ui(
             copy_button = gr.Button("Copy as checklist")
             share_button = gr.Button("Copy share update")
             ics_button = gr.Button("Add remaining steps to calendar (.ics)")
-        export_file = gr.File(label="Download", interactive=False)
+        export_file = gr.File(label="Download", interactive=False, visible=False)
         ics_file = gr.File(label="Calendar (.ics)", interactive=False, visible=False)
         checklist_output = gr.Textbox(
             label="Checklist", lines=8, visible=False, buttons=["copy"]
