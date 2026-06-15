@@ -60,8 +60,8 @@ What it does beyond a breakdown bot: a built-in step timer (Start → Done measu
 |---|---|---|
 | 🏡 **Backyard AI** (track) | A real anti-overwhelm tool for ADHD time-blindness | the whole app: tiny timed steps + honest per-category calibration |
 | 🪶 **Tiny Titan** (≤4B) | Runs on a genuinely tiny model | default model `Qwen/Qwen3-4B-Instruct-2507` (4 B) |
-| 🔌 **Off the Grid** (local-first) | No cloud APIs — runs on the model in front of you | `UNSTUCK_BACKEND=offgrid` → local GGUF, zero network (`src/unstuck/backend.py`); see *Run fully offline* below |
-| 🦙 **Llama Champion** (llama.cpp) | Model runs through the llama.cpp runtime | the `offgrid` backend drives a GGUF via `llama-cpp-python` |
+| 🔌 **Off the Grid** (local-first) | No cloud APIs — runs on the model in front of you | `UNSTUCK_BACKEND=offgrid` → local GGUF, zero network. **Verified:** [`docs/offgrid-proof.png`](docs/offgrid-proof.png) is a plan generated fully offline by the local model. See *Run fully offline* below. |
+| 🦙 **Llama Champion** (llama.cpp) | Model runs through the llama.cpp runtime | the `offgrid` backend drives `Qwen3-4B-…-Q4_K_M.gguf` via `llama-cpp-python` (same proof screenshot) |
 | 🧾 **Sharing is Caring** (open trace) | Agent trace shared on the Hub | [unstuck-agent-trace dataset](https://huggingface.co/datasets/build-small-hackathon/unstuck-agent-trace) |
 | 🎨 **Off-Brand** (custom UI) | A frontend that pushes past the default Gradio look | custom `gr.themes` theme + a Fraunces gradient wordmark, gradient buttons, layered/hover step cards, indigo focus rings, fully de-branded chrome (see `THEME`/`CSS` in `app.py`) |
 | 📝 **Field Notes** | A write-up of what we built and learned | [field notes](https://github.com/art87able/unstuck/blob/main/docs/field-notes.md) |
@@ -88,6 +88,10 @@ UNSTUCK_BACKEND=offgrid OFFGRID_GGUF_PATH=models/Qwen3-4B-Instruct-2507-Q4_K_M.g
 ```
 
 `llama-cpp-python` is deliberately left out of `requirements.txt` (it would bloat the Space build) — install it only for offline use.
+
+Verified locally — here it is generating a plan with **no network**, entirely on `Qwen3-4B-Instruct-2507-Q4_K_M.gguf` through llama.cpp:
+
+![Unstuck running fully offline on a local GGUF via llama.cpp](docs/offgrid-proof.png)
 
 Your history lives in your browser. Use the in-app **Export**/**Import** buttons to move it between devices.
 
